@@ -12,7 +12,7 @@ export default function RegisterPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' as 'student' | 'instructor' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' as 'student' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -85,31 +85,6 @@ export default function RegisterPage() {
               hint="At least 8 characters, one uppercase letter, one number"
               required
             />
-            <fieldset>
-              <legend className="text-small font-medium text-ink-primary mb-2">I want to join as</legend>
-              <div className="grid grid-cols-2 gap-3">
-                {(['student', 'instructor'] as const).map((r) => (
-                  <label
-                    key={r}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-btn border cursor-pointer transition-colors ${
-                      form.role === r
-                        ? 'border-trail-green bg-trail-green/5 text-trail-green'
-                        : 'border-border-color bg-bg-surface text-ink-muted hover:border-trail-green/50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={r}
-                      checked={form.role === r}
-                      onChange={() => setForm((f) => ({ ...f, role: r }))}
-                      className="sr-only"
-                    />
-                    <span className="font-medium capitalize text-small">{r}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
             <Button type="submit" size="lg" className="w-full" isLoading={loading}>
               Create account
             </Button>
