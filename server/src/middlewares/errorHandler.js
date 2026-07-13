@@ -60,9 +60,11 @@ const errorHandler = (err, req, res, next) => {
     success: false,
     error: {
       code,
-      message: process.env.NODE_ENV === 'production' && statusCode === 500
-        ? 'Something went wrong. Please try again.'
-        : message,
+      // Unexpected (500) errors never expose the raw internal/provider
+      // error message to the client, in dev or production — only the
+      // curated messages above (validation, auth, etc.) are user-facing.
+      // The real message + stack are always logged server-side (above).
+      message: statusCode === 500 ? 'Something went wrong. Please try again.' : message,
     },
   })
 }

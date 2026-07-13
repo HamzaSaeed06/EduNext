@@ -49,9 +49,17 @@ app.use(
   }),
 )
 
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5000', 'http://0.0.0.0:5000']
+const allowedOrigins = [
+  'http://localhost:5000',
+  'http://0.0.0.0:5000',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : []),
+  // Replit's dev preview is served from a generated *.replit.dev domain (not
+  // localhost) — allow it automatically so the CORS allowlist doesn't need
+  // manual updates every time the workspace URL changes.
+  ...(process.env.REPLIT_DEV_DOMAIN
+    ? [`https://${process.env.REPLIT_DEV_DOMAIN}`, `https://${process.env.REPLIT_DEV_DOMAIN}:5000`]
+    : []),
+]
 
 app.use(
   cors({

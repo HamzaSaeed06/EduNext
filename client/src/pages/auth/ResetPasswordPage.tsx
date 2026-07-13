@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import authService from '../../services/authService'
+import { getErrorMessage } from '../../services/api'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 
@@ -22,7 +23,7 @@ export default function ResetPasswordPage() {
       await authService.resetPassword(token, password)
       navigate('/login', { state: { message: 'Password reset successfully. Please sign in.' } })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Reset failed. The link may have expired.')
+      setError(getErrorMessage(err, 'Reset failed. The link may have expired.'))
     } finally {
       setLoading(false)
     }

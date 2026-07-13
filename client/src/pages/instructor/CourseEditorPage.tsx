@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Input from '../../components/ui/Input'
 import courseService, { type Course, type Section } from '../../services/courseService'
-import api from '../../services/api'
+import api, { getErrorMessage } from '../../services/api'
 import { validateVideoFile } from '../../utils/videoUpload'
 
 export default function CourseEditorPage() {
@@ -56,7 +56,7 @@ export default function CourseEditorPage() {
       setSuccess('Changes saved')
       setTimeout(() => setSuccess(''), 2000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
+      setError(getErrorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
@@ -195,7 +195,7 @@ export default function CourseEditorPage() {
       await courseService.submitCourse(id)
       navigate('/instructor/courses')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to submit')
+      setError(getErrorMessage(err, 'Failed to submit'))
     }
   }
 

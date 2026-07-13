@@ -5,6 +5,7 @@ import AppShell from '../../components/layout/AppShell'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import courseService from '../../services/courseService'
+import { getErrorMessage } from '../../services/api'
 
 const CATEGORIES = ['Web Dev', 'Data Science', 'DevOps', 'Design', 'Engineering', 'Business', 'Other']
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const
@@ -37,7 +38,7 @@ export default function CourseBuilderPage() {
       })
       navigate(`/instructor/courses/${course._id}/edit`, { replace: true })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create course')
+      setError(getErrorMessage(err, 'Failed to create course'))
     } finally {
       setLoading(false)
     }

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useDispatch } from 'react-redux'
 import { setCredentials } from '../../features/auth/authSlice'
-import { setAccessToken } from '../../services/api'
+import { setAccessToken, getErrorMessage } from '../../services/api'
 import authService from '../../services/authService'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -26,8 +26,7 @@ export default function RegisterPage() {
       dispatch(setCredentials({ user, accessToken }))
       navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Registration failed. Please try again.'
-      setError(msg)
+      setError(getErrorMessage(err, 'Registration failed. Please try again.'))
     } finally {
       setLoading(false)
     }

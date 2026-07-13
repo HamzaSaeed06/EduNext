@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-do
 import { motion } from 'framer-motion'
 import { useDispatch } from 'react-redux'
 import { setCredentials } from '../../features/auth/authSlice'
-import { setAccessToken } from '../../services/api'
+import { setAccessToken, getErrorMessage } from '../../services/api'
 import authService from '../../services/authService'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -32,7 +32,7 @@ export default function LoginPage() {
           navigate(from, { replace: true })
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Google authentication failed.')
+          setError(getErrorMessage(err, 'Google authentication failed.'))
           setAccessToken(null)
         })
         .finally(() => {
@@ -57,8 +57,7 @@ export default function LoginPage() {
       dispatch(setCredentials({ user, accessToken }))
       navigate(from, { replace: true })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Login failed. Please try again.'
-      setError(msg)
+      setError(getErrorMessage(err, 'Login failed. Please try again.'))
     } finally {
       setLoading(false)
     }

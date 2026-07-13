@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card'
 import ReviewsSection from '../../components/courses/ReviewsSection'
 import type { RootState } from '../../features/store'
 import courseService, { type Course, type Section, type Lecture } from '../../services/courseService'
+import { getErrorMessage } from '../../services/api'
 
 export default function CourseDetailPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -52,7 +53,7 @@ export default function CourseDetailPage() {
       setEnrolled(true)
       navigate(`/courses/${slug}/learn`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to enroll')
+      setError(getErrorMessage(err, 'Failed to enroll'))
     } finally {
       setEnrolling(false)
     }

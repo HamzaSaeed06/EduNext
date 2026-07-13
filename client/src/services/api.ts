@@ -1,5 +1,22 @@
 import axios from 'axios'
 
+/**
+ * Axios errors carry a generic message like "Request failed with status
+ * code 400" on err.message — not helpful to end users and easy to mistake
+ * for a raw error code. The backend's errorHandler always puts the
+ * user-safe message at err.response.data.error.message (curated text for
+ * 4xx, and a generic "Something went wrong" for 500s). Prefer that.
+ */
+export function getErrorMessage(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (axios.isAxiosError(err)) {
+    const backendMessage = err.response?.data?.error?.message
+    if (typeof backendMessage === 'string' && backendMessage) return backendMessage
+    if (!err.response) return 'Unable to reach the server. Please check your connection and try again.'
+  }
+  if (err instanceof Error && err.message) return err.message
+  return fallback
+}
+
 const api = axios.create({
   baseURL: '/api/v1',
   withCredentials: true,

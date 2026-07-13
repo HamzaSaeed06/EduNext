@@ -44,3 +44,12 @@ description: Key architectural decisions, port config, AI provider, test pattern
 ## Admin routes
 - All admin user routes in `server/src/routes/users.js`, mounted at `/api/v1`.
 - `GET /admin/stats` returns `{ totalUsers, totalCourses, pendingReview, totalEnrollments }`.
+
+## CORS in the Replit dev preview
+- The Replit preview loads the app from a public `https://<id>.<cluster>.replit.dev` origin, not `localhost` — a CORS allowlist that only contains localhost entries (or relies on `CORS_ORIGIN` being manually set to localhost) will reject real preview requests with "Not allowed by CORS", even though curl-from-shell tests against `localhost` pass fine.
+- `NODE_ENV` is NOT set by default by the `npm run dev` workflow command here — don't rely on `process.env.NODE_ENV === 'development'` as a CORS bypass or any other dev-only gate; it silently never fires.
+- **How to apply:** build the CORS allowlist by merging localhost defaults + any configured `CORS_ORIGIN` + an auto-derived entry from `process.env.REPLIT_DEV_DOMAIN` (`https://${REPLIT_DEV_DOMAIN}` and `:5000` variant), so it self-updates with the workspace's actual domain instead of depending on `NODE_ENV`.
+
+## Sanitizing errors shown to end users
+- Two layers are both needed, or raw technical errors leak through even after backend sanitization: (1) server-side, `errorHandler` must always replace 500-level `err.message` with a generic string (not just in production) since third-party provider errors (e.g. Gemini quota/HTTP error JSON) otherwise bubble straight to the client; (2) client-side, code must read `err.response.data.error.message` from the axios error, not `err.message` — axios's own `err.message` is a generic string like "Request failed with status code 400" that never carries the backend's curated message, so using it makes every error unhelpful/generic-looking (which itself reads as "raw code" to non-technical users) even though it isn't technically an information leak.
+- **How to apply:** centralize this as a small `getErrorMessage(err, fallback)` helper (checks `axios.isAxiosError`, falls back to network-error copy when `!err.response`) and use it everywhere `catch (err)` sets user-facing error state, instead of ad hoc `err instanceof Error ? err.message : ...`.

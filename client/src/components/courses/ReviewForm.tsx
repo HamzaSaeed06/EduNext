@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import Button from '../ui/Button'
 import courseService from '../../services/courseService'
+import { getErrorMessage } from '../../services/api'
 
 interface ReviewFormProps {
     slug: string
@@ -41,7 +42,7 @@ export default function ReviewForm({
             })
             onReviewSubmitted()
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to submit review')
+            setError(getErrorMessage(err, 'Failed to submit review'))
         } finally {
             setLoading(false)
         }
@@ -55,7 +56,7 @@ export default function ReviewForm({
             await courseService.deleteCourseReview(slug)
             onReviewSubmitted()
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to delete review')
+            setError(getErrorMessage(err, 'Failed to delete review'))
         } finally {
             setLoading(false)
         }
