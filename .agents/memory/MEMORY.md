@@ -1,0 +1,1 @@
+- [EduNext project setup](edunext-setup.md) — ports, AI provider choice, deferred features, test patterns

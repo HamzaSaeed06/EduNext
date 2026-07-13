@@ -1,5 +1,10 @@
 const { AppError, asyncHandler } = require('../middlewares/errorHandler')
-const { generateCourseSummary, generateQuizQuestions, generateRecommendations } = require('../services/aiService')
+const {
+  generateCourseSummary,
+  generateQuizQuestions,
+  generateRecommendations,
+  chatWithTutor,
+} = require('../services/aiService')
 const Course = require('../models/Course')
 const Lecture = require('../models/Lecture')
 const Quiz = require('../models/Quiz')
@@ -54,7 +59,6 @@ const getRecommendations = asyncHandler(async (req, res) => {
 
   const recommendations = await generateRecommendations(completedCourses, enrolledCategories)
 
-  // Fetch matching courses from the DB
   const courses = await Course.find({
     status: 'published',
     isDeleted: false,
@@ -66,11 +70,46 @@ const getRecommendations = asyncHandler(async (req, res) => {
     .populate('instructor', 'name avatar')
     .select('-aiSummary')
 
-  res.json({
-    success: true,
-    data: { recommendations, courses },
-    message: '',
-  })
+  res.json({ success: true, data: { recommendations, courses }, message: '' })
 })
 
-module.exports = { summarizeCourse, generateQuiz, getRecommendations }
+// POST /api/v1/ai/chat  — enrolled student
+const chat = asyncHandler(async (req, res) => {
+  const { courseId, lectureId, message, history = [] } = req.body
+
+  if (!message || !message.trim()) {
+    throw new AppError('Message is required', 400, 'VALIDATION_ERROR')
+  }
+  if (message.trim().length > 1000) {
+    throw new AppError('Message cannot exceed 1000 characters', 400, 'VALIDATION_ERROR')
+  }
+
+  const course = await Course.findOne({ _id: courseId, isDeleted: false })
+  if (!course) throw new AppError('Course not found', 404, 'NOT_FOUND')
+
+  // Only enrolled students, the course instructor, or admin can use the chatbot
+  const isInstructor = String(course.instructor) === String(req.user._id)
+  const isAdmin = req.user.role === 'admin'
+  if (!isInstructor && !isAdmin) {
+    const enrollment = await Enrollment.findOne({ student: req.user._id, course: course._id })
+    if (!enrollment) throw new AppError('You must be enrolled to use the AI Tutor', 403, 'FORBIDDEN')
+  }
+
+  let lectureTitle = null
+  if (lectureId) {
+    const lecture = await Lecture.findOne({ _id: lectureId, isDeleted: false })
+    if (lecture) lectureTitle = lecture.title
+  }
+
+  // Sanitize history to only pass role/content, max 10 turns
+  const safeHistory = (Array.isArray(history) ? history : [])
+    .slice(-10)
+    .filter((m) => ['user', 'assistant'].includes(m.role) && typeof m.content === 'string')
+    .map(({ role, content }) => ({ role, content: content.slice(0, 500) }))
+
+  const reply = await chatWithTutor(course.title, lectureTitle, message.trim(), safeHistory)
+
+  res.json({ success: true, data: { reply }, message: '' })
+})
+
+module.exports = { summarizeCourse, generateQuiz, getRecommendations, chat }

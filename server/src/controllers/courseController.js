@@ -231,6 +231,16 @@ const reviewCourse = asyncHandler(async (req, res) => {
   course.status = action === 'approve' ? 'published' : 'rejected'
   if (feedback) course.adminFeedback = feedback
   await course.save()
+
+  // Real-time notification to instructor
+  try {
+    const { notifyUser } = require('../config/socket')
+    const msg = action === 'approve'
+      ? `Your course "${course.title}" has been approved and is now live!`
+      : `Your course "${course.title}" was not approved. ${feedback ? `Feedback: ${feedback}` : ''}`
+    notifyUser(course.instructor, action === 'approve' ? 'course_approved' : 'course_rejected', msg, { courseId: course._id })
+  } catch { /* Socket.io not available in test/stub environments */ }
+
   res.json({ success: true, data: { course }, message: `Course ${action}d` })
 })
 

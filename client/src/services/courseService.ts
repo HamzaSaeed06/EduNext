@@ -31,6 +31,35 @@ export interface Lecture {
   duration: number
   order: number
   isFree: boolean
+  contentUrl?: string
+}
+
+export interface LectureProgress {
+  lecture: string
+  completed: boolean
+  lastPosition: number
+  watchedSeconds: number
+  completedAt: string | null
+}
+
+export interface Enrollment {
+  _id: string
+  course: Course
+  progress: number
+  isCompleted: boolean
+  completedLectures: LectureProgress[]
+}
+
+export interface DiscussionPost {
+  _id: string
+  course: string
+  lecture: string | null
+  author: { _id: string; name: string; avatar?: string; role: string }
+  content: string
+  parentPost: string | null
+  isInstructorReply: boolean
+  replies: DiscussionPost[]
+  createdAt: string
 }
 
 export interface CoursesQuery {
@@ -87,8 +116,48 @@ const courseService = {
     await api.delete(`/courses/${slug}/enroll`)
   },
 
-  async getMyEnrollments(): Promise<{ enrollments: Array<{ _id: string; course: Course; progress: number; isCompleted: boolean }> }> {
+  async getMyEnrollments(): Promise<{ enrollments: Enrollment[] }> {
     const res = await api.get('/courses/student/enrollments')
+    return res.data.data
+  },
+
+  async updateProgress(enrollmentId: string, data: {
+    lectureId: string
+    completed?: boolean
+    lastPosition?: number
+    watchedSeconds?: number
+  }): Promise<{ progress: number; isCompleted: boolean }> {
+    const res = await api.patch(`/courses/enrollments/${enrollmentId}/progress`, data)
+    return res.data.data
+  },
+
+  async getDiscussions(courseId: string, lectureId?: string, page = 1): Promise<{ posts: DiscussionPost[]; total: number }> {
+    const params = new URLSearchParams({ page: String(page) })
+    if (lectureId) params.set('lectureId', lectureId)
+    const res = await api.get(`/courses/${courseId}/discussions?${params.toString()}`)
+    return res.data.data
+  },
+
+  async createDiscussionPost(courseId: string, data: {
+    content: string
+    lectureId?: string
+    parentPostId?: string
+  }): Promise<{ post: DiscussionPost }> {
+    const res = await api.post(`/courses/${courseId}/discussions`, data)
+    return res.data.data
+  },
+
+  async deleteDiscussionPost(postId: string): Promise<void> {
+    await api.delete(`/discussions/${postId}`)
+  },
+
+  async aiChat(data: {
+    courseId: string
+    lectureId?: string
+    message: string
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  }): Promise<{ reply: string }> {
+    const res = await api.post('/ai/chat', data)
     return res.data.data
   },
 }

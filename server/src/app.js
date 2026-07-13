@@ -1,4 +1,5 @@
 require('dotenv').config()
+const http = require('http')
 const express = require('express')
 const helmet = require('helmet')
 const cors = require('cors')
@@ -7,6 +8,7 @@ const cookieParser = require('cookie-parser')
 
 const connectDB = require('./config/db')
 const logger = require('./config/logger')
+const { initSocket } = require('./config/socket')
 const { errorHandler } = require('./middlewares/errorHandler')
 const { generalLimiter } = require('./middlewares/rateLimiter')
 const indexRouter = require('./routes/index')
@@ -14,8 +16,11 @@ const authRouter = require('./routes/auth')
 const coursesRouter = require('./routes/courses')
 const quizzesRouter = require('./routes/quizzes')
 const aiRouter = require('./routes/ai')
+const discussionsRouter = require('./routes/discussions')
+const usersRouter = require('./routes/users')
 
 const app = express()
+const httpServer = http.createServer(app)
 
 app.set('trust proxy', 1)
 
@@ -71,6 +76,8 @@ app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/courses', coursesRouter)
 app.use('/api/v1', quizzesRouter)
 app.use('/api/v1', aiRouter)
+app.use('/api/v1', discussionsRouter)
+app.use('/api/v1', usersRouter)
 
 app.all('*', (req, res) => {
   res.status(404).json({
@@ -84,7 +91,10 @@ app.use(errorHandler)
 const PORT = parseInt(process.env.PORT || '3000', 10)
 
 const startServer = () => {
-  app.listen(PORT, '0.0.0.0', () => {
+  if (process.env.NODE_ENV !== 'test') {
+    initSocket(httpServer)
+  }
+  httpServer.listen(PORT, '0.0.0.0', () => {
     logger.info(`EduNext server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`)
     if (process.env.NODE_ENV !== 'test') {
       connectDB().catch((err) => {

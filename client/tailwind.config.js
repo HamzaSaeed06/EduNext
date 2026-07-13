@@ -30,6 +30,7 @@ export default {
       fontSize: {
         'display-xl': ['3.5rem', { lineHeight: '1.05' }],
         'display-l': ['2.25rem', { lineHeight: '1.1' }],
+        'display-s': ['1.75rem', { lineHeight: '1.15' }],
         heading: ['1.5rem', { lineHeight: '1.3' }],
         body: ['1rem', { lineHeight: '1.6' }],
         small: ['0.875rem', { lineHeight: '1.5' }],
