@@ -1,3 +1,4 @@
+import axios from 'axios'
 import api from './api'
 
 interface AuthResponse {
@@ -28,7 +29,9 @@ const authService = {
   },
 
   async refreshToken(): Promise<{ accessToken: string }> {
-    const res = await api.post('/auth/refresh-token')
+    // Use plain axios (not the interceptor-wrapped api) so that a 401 here
+    // does NOT trigger the interceptor's retry/redirect loop.
+    const res = await axios.post('/api/v1/auth/refresh-token', {}, { withCredentials: true })
     return res.data.data
   },
 

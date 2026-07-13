@@ -142,30 +142,100 @@ export default function CoursePlayerPage() {
             </div>
           </div>
           <div className="overflow-y-auto" style={{ height: 'calc(100vh - 132px)' }}>
-            {sections.map((section) => (
+            {sections.map((section, sectionIdx) => (
               <div key={section._id}>
-                <p className="px-4 py-2 text-micro font-mono text-ink-muted uppercase tracking-wide bg-bg-surface-alt border-b border-border-color">
-                  {section.title}
-                </p>
-                {section.lectures.map((lec) => {
-                  const isActive = activeLecture?._id === lec._id
-                  const isDone = completedIds.has(lec._id)
-                  return (
-                    <button
-                      key={lec._id}
-                      onClick={() => setActiveLecture(lec)}
-                      className={`w-full text-left px-4 py-3 flex items-center gap-3 border-b border-border-color/50 transition-colors hover:bg-bg-surface-alt focus:outline-none focus:bg-bg-surface-alt ${isActive ? 'bg-trail-green/5 border-l-2 border-l-trail-green' : ''}`}
-                      aria-current={isActive ? 'true' : undefined}
-                    >
-                      <span className={`text-small shrink-0 ${isDone ? 'text-trail-green' : 'text-ink-muted'}`} aria-hidden="true">
-                        {isDone ? '✓' : lec.type === 'video' ? '▶' : lec.type === 'quiz' ? '❓' : '📄'}
-                      </span>
-                      <span className={`text-small leading-snug ${isActive ? 'text-trail-green font-medium' : 'text-ink-primary'}`}>
-                        {lec.title}
-                      </span>
-                    </button>
-                  )
-                })}
+                {/* Section header */}
+                <div className="px-4 py-3 bg-bg-surface-alt border-b border-border-color sticky top-0 z-10">
+                  <p className="text-micro font-semibold text-ink-muted uppercase tracking-widest mb-0.5">
+                    Section {sectionIdx + 1}
+                  </p>
+                  <p className="text-small font-medium text-ink-primary leading-snug">
+                    {section.title}
+                  </p>
+                  <p className="text-micro text-ink-muted mt-0.5">
+                    {section.lectures.length} {section.lectures.length === 1 ? 'lesson' : 'lessons'} · {section.lectures.filter(l => completedIds.has(l._id)).length}/{section.lectures.length} done
+                  </p>
+                </div>
+
+                {/* Lectures — Coursera-style with vertical timeline line */}
+                <div className="pl-4 pr-3 py-2">
+                  {section.lectures.map((lec, lecIdx) => {
+                    const isActive = activeLecture?._id === lec._id
+                    const isDone = completedIds.has(lec._id)
+                    const isLast = lecIdx === section.lectures.length - 1
+
+                    const iconEl = isDone ? (
+                      <svg className="w-4 h-4 text-trail-green" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : lec.type === 'video' ? (
+                      <svg className="w-4 h-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                    ) : lec.type === 'quiz' ? (
+                      <svg className="w-4 h-4 text-trail-amber" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                      </svg>
+                    )
+
+                    const typeLabel = lec.type === 'video' ? 'Video' : lec.type === 'quiz' ? 'Quiz' : lec.type === 'pdf' ? 'PDF' : 'Reading'
+
+                    return (
+                      <div key={lec._id} className="flex gap-0">
+                        {/* Timeline column */}
+                        <div className="flex flex-col items-center mr-3 shrink-0" style={{ width: 20 }}>
+                          {/* Icon circle */}
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 z-10 border-2 ${
+                            isDone
+                              ? 'bg-trail-green border-trail-green'
+                              : isActive
+                              ? 'bg-bg-surface border-trail-green'
+                              : 'bg-bg-surface border-border-color'
+                          }`}>
+                            {isDone ? (
+                              <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M10 3L5 8.5 2 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                              </svg>
+                            ) : (
+                              <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-trail-green' : 'bg-border-color'}`} />
+                            )}
+                          </div>
+                          {/* Vertical line */}
+                          {!isLast && (
+                            <div className={`w-0.5 flex-1 mt-0.5 min-h-6 ${isDone ? 'bg-trail-green/30' : 'bg-border-color'}`} />
+                          )}
+                        </div>
+
+                        {/* Lecture button */}
+                        <button
+                          onClick={() => setActiveLecture(lec)}
+                          className={`flex-1 text-left pb-4 pt-0.5 transition-colors focus:outline-none group ${isLast ? '' : ''}`}
+                          aria-current={isActive ? 'true' : undefined}
+                        >
+                          <div className={`rounded-btn px-3 py-2.5 transition-colors ${
+                            isActive
+                              ? 'bg-trail-green/8 border border-trail-green/30'
+                              : 'hover:bg-bg-surface-alt border border-transparent'
+                          }`}>
+                            <div className="flex items-start gap-2">
+                              <span className="mt-0.5 shrink-0">{iconEl}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-small leading-snug ${isActive ? 'text-trail-green font-medium' : isDone ? 'text-ink-muted' : 'text-ink-primary'}`}>
+                                  {lec.title}
+                                </p>
+                                <p className="text-micro text-ink-muted mt-0.5">{typeLabel}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ))}
           </div>

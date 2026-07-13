@@ -45,7 +45,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Never retry the refresh-token endpoint itself — that causes an infinite loop.
+    const isRefreshEndpoint = originalRequest?.url?.includes('refresh-token')
+    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshEndpoint) {
       originalRequest._retry = true
       try {
         const { data } = await axios.post('/api/v1/auth/refresh-token', {}, { withCredentials: true })
@@ -54,7 +56,10 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch {
         accessToken = null
-        window.location.href = '/login'
+        // Only redirect if we're not already on an auth page, to prevent reload loops.
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
