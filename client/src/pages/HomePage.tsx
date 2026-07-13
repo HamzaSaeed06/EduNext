@@ -5,6 +5,24 @@ import PublicNavbar from '../components/layout/PublicNavbar'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import TrailProgress from '../components/ui/TrailProgress'
+import {
+  GlobeIcon,
+  ChartBarIcon,
+  PaletteIcon,
+  RobotIcon,
+  BriefcaseIcon,
+  MegaphoneIcon,
+  CodeIcon,
+  LockIcon,
+  MapIcon,
+  BookOpenIcon,
+  TrophyIcon,
+  StarIcon,
+  CheckIcon,
+} from '../components/ui/Icons'
+import type { SVGProps } from 'react'
+
+type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element
 
 const sampleCourses = [
   { id: 1, title: 'Introduction to Machine Learning', instructor: 'Dr. Sarah Chen', level: 'Beginner', progress: 45, enrolled: 2340 },
@@ -12,15 +30,15 @@ const sampleCourses = [
   { id: 3, title: 'System Design Fundamentals', instructor: 'Priya Nair', level: 'Intermediate', progress: 72, enrolled: 3100 },
 ]
 
-const CATEGORIES = [
-  { label: 'Web Development', icon: '🌐', count: 48 },
-  { label: 'Data Science', icon: '📊', count: 34 },
-  { label: 'Design & UX', icon: '🎨', count: 27 },
-  { label: 'Machine Learning', icon: '🤖', count: 31 },
-  { label: 'Business', icon: '💼', count: 22 },
-  { label: 'Marketing', icon: '📣', count: 19 },
-  { label: 'Programming', icon: '💻', count: 56 },
-  { label: 'Cybersecurity', icon: '🔒', count: 15 },
+const CATEGORIES: { label: string; icon: IconComponent; count: number }[] = [
+  { label: 'Web Development', icon: GlobeIcon, count: 48 },
+  { label: 'Data Science', icon: ChartBarIcon, count: 34 },
+  { label: 'Design & UX', icon: PaletteIcon, count: 27 },
+  { label: 'Machine Learning', icon: RobotIcon, count: 31 },
+  { label: 'Business', icon: BriefcaseIcon, count: 22 },
+  { label: 'Marketing', icon: MegaphoneIcon, count: 19 },
+  { label: 'Programming', icon: CodeIcon, count: 56 },
+  { label: 'Cybersecurity', icon: LockIcon, count: 15 },
 ]
 
 const INSTRUCTORS = [
@@ -55,6 +73,12 @@ const FAQS = [
   { q: 'Can I access courses on mobile?', a: 'Yes. EduNext is fully responsive and works on any device.' },
   { q: 'What if I get stuck in a course?', a: 'Every course has an AI Tutor and a Q&A discussion board where you can ask questions and get answers from other learners.' },
   { q: 'How do instructors join?', a: 'Instructors are verified and onboarded by our team. If you\'re an expert who wants to teach, contact us.' },
+]
+
+const HOW_IT_WORKS: { step: string; title: string; desc: string; icon: IconComponent }[] = [
+  { step: '01', title: 'Pick a trail', desc: 'Browse 200+ courses across every discipline. Filter by level, category, or rating to find the perfect fit.', icon: MapIcon },
+  { step: '02', title: 'Learn at your pace', desc: 'Watch videos, complete quizzes, and ask your AI Tutor when you get stuck. Your progress saves automatically.', icon: BookOpenIcon },
+  { step: '03', title: 'Earn your certificate', desc: 'Complete a trail and receive a verified certificate with a unique link — shareable directly on LinkedIn.', icon: TrophyIcon },
 ]
 
 export default function HomePage() {
@@ -102,10 +126,15 @@ export default function HomePage() {
               { value: '12,000+', label: 'Active learners' },
               { value: '200+', label: 'Courses available' },
               { value: '95%', label: 'Completion rate' },
-              { value: '4.8 ★', label: 'Average rating' },
+              { value: '4.8', label: 'Average rating' },
             ].map(({ value, label }) => (
               <div key={label}>
-                <p className="font-display text-display-l text-trail-green font-bold">{value}</p>
+                <p className="font-display text-display-l text-trail-green font-bold flex items-center justify-center gap-1">
+                  {value}
+                  {label === 'Average rating' && (
+                    <StarIcon className="w-5 h-5 text-trail-amber inline-block" />
+                  )}
+                </p>
                 <p className="text-small text-ink-muted mt-1">{label}</p>
               </div>
             ))}
@@ -167,7 +196,7 @@ export default function HomePage() {
                 onClick={() => navigate(`/courses?search=${cat.label.toLowerCase()}`)}
                 className="flex flex-col items-start gap-2 p-4 bg-bg-base border border-border-color rounded-card hover:border-trail-green hover:shadow-card transition-all text-left group"
               >
-                <span className="text-2xl">{cat.icon}</span>
+                <cat.icon className="w-6 h-6 text-ink-muted group-hover:text-trail-green transition-colors" />
                 <span className="text-small font-medium text-ink-primary group-hover:text-trail-green transition-colors">{cat.label}</span>
                 <span className="text-micro text-ink-muted">{cat.count} courses</span>
               </motion.button>
@@ -181,14 +210,10 @@ export default function HomePage() {
         <h2 className="font-display text-display-l text-ink-primary text-center mb-3">How it works</h2>
         <p className="text-body text-ink-muted text-center mb-12 max-w-lg mx-auto">Three steps from zero to certified.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          {[
-            { step: '01', title: 'Pick a trail', desc: 'Browse 200+ courses across every discipline. Filter by level, category, or rating to find the perfect fit.', icon: '🗺️' },
-            { step: '02', title: 'Learn at your pace', desc: 'Watch videos, complete quizzes, and ask your AI Tutor when you get stuck. Your progress saves automatically.', icon: '📚' },
-            { step: '03', title: 'Earn your certificate', desc: 'Complete a trail and receive a verified certificate with a unique link — shareable directly on LinkedIn.', icon: '🏆' },
-          ].map(({ step, title, desc, icon }) => (
+          {HOW_IT_WORKS.map(({ step, title, desc, icon: Icon }) => (
             <div key={step} className="text-center relative">
-              <div className="w-16 h-16 rounded-full bg-trail-green/10 border-2 border-trail-green/20 flex items-center justify-center mx-auto mb-4 text-2xl">
-                {icon}
+              <div className="w-16 h-16 rounded-full bg-trail-green/10 border-2 border-trail-green/20 flex items-center justify-center mx-auto mb-4">
+                <Icon className="w-7 h-7 text-trail-green" />
               </div>
               <span className="text-micro font-mono text-trail-green/60 uppercase tracking-widest">{step}</span>
               <h3 className="font-display text-heading text-ink-primary mt-1 mb-3">{title}</h3>
@@ -276,7 +301,7 @@ export default function HomePage() {
               <Card className="p-6 h-full flex flex-col">
                 <div className="flex gap-0.5 mb-4">
                   {Array.from({ length: t.rating }).map((_, j) => (
-                    <span key={j} className="text-trail-amber text-small">★</span>
+                    <StarIcon key={j} className="w-4 h-4 text-trail-amber" />
                   ))}
                 </div>
                 <p className="text-body text-ink-primary mb-5 flex-1 italic">"{t.text}"</p>
@@ -307,7 +332,9 @@ export default function HomePage() {
             <ul className="space-y-3 mb-8">
               {['Unique verification URL for each certificate', 'Includes your name, course, and completion date', 'Shareable on LinkedIn with one click', 'Permanently verifiable — never expires'].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-small text-ink-muted">
-                  <span className="w-5 h-5 rounded-full bg-trail-green/10 text-trail-green flex items-center justify-center shrink-0 text-micro">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-trail-green/10 text-trail-green flex items-center justify-center shrink-0">
+                    <CheckIcon className="w-3 h-3" />
+                  </span>
                   {item}
                 </li>
               ))}
@@ -333,9 +360,11 @@ export default function HomePage() {
                 <p className="font-display text-display-l text-ink-primary mb-1">Your Name Here</p>
                 <p className="text-small text-ink-muted mb-3">has successfully completed</p>
                 <p className="font-display text-heading text-trail-green mb-4">Introduction to Machine Learning</p>
-                <div className="flex justify-between text-micro text-ink-muted border-t border-border-color pt-4">
+                <div className="flex justify-between items-center text-micro text-ink-muted border-t border-border-color pt-4">
                   <span>Issued July 2026</span>
-                  <span className="font-mono text-trail-green">✓ Verified</span>
+                  <span className="font-mono text-trail-green flex items-center gap-1">
+                    <CheckIcon className="w-3 h-3" /> Verified
+                  </span>
                 </div>
               </div>
             </div>

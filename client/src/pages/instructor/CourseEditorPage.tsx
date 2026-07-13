@@ -9,6 +9,7 @@ import Input from '../../components/ui/Input'
 import courseService, { type Course, type Section } from '../../services/courseService'
 import api, { getErrorMessage } from '../../services/api'
 import { validateVideoFile } from '../../utils/videoUpload'
+import { PlayCircleIcon, DocumentIcon, VideoCameraIcon } from '../../components/ui/Icons'
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024
 
@@ -39,7 +40,7 @@ function UploadDropZone({
   id, accept, label, hint, icon, dragOver, compact,
   onDragOver, onDragLeave, onDrop, onChange,
 }: {
-  id: string; accept: string; label: string; hint: string; icon?: string
+  id: string; accept: string; label: string; hint: string; icon?: React.ReactNode
   dragOver: boolean; compact?: boolean
   onDragOver: () => void; onDragLeave: () => void
   onDrop: (file: File) => void; onChange: (file: File) => void
@@ -68,7 +69,7 @@ function UploadDropZone({
       <input type="file" accept={accept} id={id} className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f) }} />
       <label htmlFor={id} className="cursor-pointer space-y-2 block">
-        {icon && <div className="text-display-s text-ink-muted">{icon}</div>}
+        {icon && <div className="flex justify-center text-ink-muted mb-1">{icon}</div>}
         <div className="text-small font-medium text-ink-primary">
           {label} <span className="text-trail-green underline">browse</span>
         </div>
@@ -480,7 +481,9 @@ export default function CourseEditorPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-ink-muted">
-                              {l.type === 'video' ? '▶' : '📄'}
+                              {l.type === 'video'
+                                ? <PlayCircleIcon className="w-4 h-4" />
+                                : <DocumentIcon className="w-4 h-4" />}
                             </span>
                             <span className="font-medium text-ink-primary">{l.title}</span>
                             <span className="text-micro bg-bg-surface border px-1.5 py-0.5 rounded text-ink-muted uppercase">
@@ -512,7 +515,7 @@ export default function CourseEditorPage() {
                                 onDragLeave={() => setDragOver((p) => ({ ...p, [l._id]: false }))}
                                 onDrop={(file) => { setDragOver((p) => ({ ...p, [l._id]: false })); handleVideoUpload(l._id, file) }}
                                 onChange={(file) => handleVideoUpload(l._id, file)}
-                                icon="🎬"
+                                icon={<VideoCameraIcon className="w-8 h-8" />}
                               />
                             )}
                           </div>
@@ -523,7 +526,7 @@ export default function CourseEditorPage() {
                           <div className="mt-2 space-y-3">
                             {l.contentUrl ? (
                               <div className="flex items-center gap-3 p-4 rounded-card border border-border bg-bg-surface-alt max-w-md">
-                                <span className="text-display-s">📄</span>
+                                <DocumentIcon className="w-8 h-8 text-ink-muted flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-small font-medium text-ink-primary truncate">PDF uploaded</p>
                                   <a href={l.contentUrl} target="_blank" rel="noopener noreferrer" className="text-micro text-trail-green hover:underline">
@@ -556,7 +559,7 @@ export default function CourseEditorPage() {
                                 onDragLeave={() => setDragOver((p) => ({ ...p, [l._id]: false }))}
                                 onDrop={(file) => { setDragOver((p) => ({ ...p, [l._id]: false })); handlePdfUpload(l._id, file) }}
                                 onChange={(file) => handlePdfUpload(l._id, file)}
-                                icon="📄"
+                                icon={<DocumentIcon className="w-8 h-8" />}
                               />
                             )}
                           </div>

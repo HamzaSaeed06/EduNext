@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../services/api'
+import { XCircleIcon, MedalIcon } from '../components/ui/Icons'
 
 interface CertData {
   certificateId: string
@@ -46,14 +47,14 @@ export default function CertificateVerifyPage() {
           <div className="h-64 bg-bg-surface rounded-card animate-pulse" />
         ) : invalid ? (
           <div className="bg-bg-surface rounded-card shadow-card border border-error-clay/20 p-8 text-center">
-            <p className="text-2xl mb-3">❌</p>
+            <XCircleIcon className="w-10 h-10 mx-auto mb-3 text-error-clay" />
             <h1 className="font-display text-heading text-ink-primary mb-2">Certificate not found</h1>
             <p className="text-body text-ink-muted">This certificate ID doesn't match any record in our system.</p>
           </div>
         ) : cert ? (
           <div className="bg-bg-surface rounded-card shadow-card border border-trail-amber/30 overflow-hidden">
             <div className="bg-gradient-to-br from-trail-green/10 to-trail-amber/10 p-8 text-center border-b border-border-color">
-              <p className="text-3xl mb-3">🏅</p>
+              <MedalIcon className="w-10 h-10 mx-auto mb-3 text-trail-amber" />
               <div className="inline-flex items-center gap-2 bg-trail-green/10 text-trail-green text-small px-3 py-1 rounded-pill mb-4">
                 <span className="w-2 h-2 bg-trail-green rounded-full" /> Valid certificate
               </div>

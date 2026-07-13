@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import api from '../../services/api'
+import { UsersIcon, GraduationCapIcon, ClockIcon, TrendingUpIcon } from '../../components/ui/Icons'
 
 interface Stats {
   totalUsers: number
@@ -24,11 +25,12 @@ export default function AdminDashboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const STAT_CARDS = [
-    { label: 'Total users', value: stats?.totalUsers, icon: '👥', href: '/admin/users' },
-    { label: 'Total courses', value: stats?.totalCourses, icon: '🎓', href: '/admin/courses' },
-    { label: 'Pending review', value: stats?.pendingReview, icon: '⏳', href: '/admin/courses?status=pending_review', highlight: (stats?.pendingReview ?? 0) > 0 },
-    { label: 'Enrollments', value: stats?.totalEnrollments, icon: '📈', href: '/admin/courses' },
+  type StatIcon = ComponentType<SVGProps<SVGSVGElement>>
+  const STAT_CARDS: { label: string; value: number | undefined; Icon: StatIcon; href: string; highlight?: boolean }[] = [
+    { label: 'Total users', value: stats?.totalUsers, Icon: UsersIcon, href: '/admin/users' },
+    { label: 'Total courses', value: stats?.totalCourses, Icon: GraduationCapIcon, href: '/admin/courses' },
+    { label: 'Pending review', value: stats?.pendingReview, Icon: ClockIcon, href: '/admin/courses?status=pending_review', highlight: (stats?.pendingReview ?? 0) > 0 },
+    { label: 'Enrollments', value: stats?.totalEnrollments, Icon: TrendingUpIcon, href: '/admin/courses' },
   ]
 
   return (
@@ -48,7 +50,7 @@ export default function AdminDashboardPage() {
           {STAT_CARDS.map((stat) => (
             <Link key={stat.label} to={stat.href}>
               <Card hover className={`p-5 ${stat.highlight ? 'border-trail-amber/40 bg-trail-amber/5' : ''}`}>
-                <span className="text-2xl">{stat.icon}</span>
+                <stat.Icon className={`w-6 h-6 ${stat.highlight ? 'text-trail-amber' : 'text-ink-muted'}`} />
                 <p className={`font-display text-2xl mt-2 ${stat.highlight ? 'text-trail-amber' : 'text-ink-primary'}`}>
                   {loading ? '—' : (stat.value ?? '—').toLocaleString()}
                 </p>

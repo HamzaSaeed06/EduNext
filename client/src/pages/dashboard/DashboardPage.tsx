@@ -9,6 +9,7 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import courseService from '../../services/courseService'
 import api from '../../services/api'
+import { MedalIcon } from '../../components/ui/Icons'
 
 interface Enrollment {
   _id: string
@@ -118,7 +119,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {completed.map((enrollment) => (
                 <Card key={enrollment._id} className="p-4 flex items-center gap-4">
-                  <span className="text-xl shrink-0">🏅</span>
+                  <MedalIcon className="w-5 h-5 shrink-0 text-trail-amber" />
                   <div className="flex-1 min-w-0">
                     <p className="font-display text-heading text-ink-primary truncate">{enrollment.course?.title}</p>
                     <p className="text-small text-trail-green">Completed</p>

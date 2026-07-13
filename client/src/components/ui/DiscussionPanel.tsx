@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { RootState } from '../../features/store'
 import courseService, { type DiscussionPost } from '../../services/courseService'
+import { XIcon } from './Icons'
 import Button from './Button'
 
 interface Props {
@@ -45,7 +46,7 @@ function DeleteConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="bg-bg-surface border border-border-color rounded-card shadow-xl p-6 max-w-sm w-full mx-4"
+        className="bg-bg-surface rounded-card shadow-xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-3">
@@ -74,10 +75,77 @@ function DeleteConfirmModal({
 function timeAgo(iso: string) {
   const d = new Date(iso)
   const diff = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 60) return 'now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`
   return d.toLocaleDateString()
+}
+
+// A single TikTok-style comment: avatar on the left, everything else stacked
+// on the right — name + time on their own line, the message as plain text
+// (no bubble/border), and a compact action row underneath. No divider lines
+// anywhere; comments are separated by whitespace alone, exactly like TikTok.
+function Comment({
+  avatarClass,
+  avatarLabel,
+  name,
+  isInstructor,
+  createdAt,
+  content,
+  canDelete,
+  onDelete,
+  onReply,
+  highlighted,
+  children,
+}: {
+  avatarClass: string
+  avatarLabel: string
+  name: string
+  isInstructor?: boolean
+  createdAt: string
+  content: string
+  canDelete: boolean
+  onDelete: () => void
+  onReply: () => void
+  highlighted: boolean
+  children?: React.ReactNode
+}) {
+  return (
+    <div className={`flex items-start gap-2.5 rounded-2xl transition-colors duration-300 ${highlighted ? 'bg-trail-green/6 -mx-2 px-2 py-1.5' : ''}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-small font-semibold shrink-0 ${avatarClass}`}>
+        {avatarLabel}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-micro font-semibold text-ink-muted">{name}</span>
+          {isInstructor && (
+            <span className="text-[10px] leading-none font-semibold bg-trail-amber/10 text-trail-amber px-1.5 py-0.5 rounded-pill">Instructor</span>
+          )}
+        </div>
+        <p className="text-small text-ink-primary whitespace-pre-wrap leading-snug mt-0.5">{content}</p>
+        <div className="flex items-center gap-3.5 mt-1">
+          <span className="text-[11px] text-ink-muted">{timeAgo(createdAt)}</span>
+          <button
+            onClick={onReply}
+            className={`text-[11px] font-semibold transition-colors ${highlighted ? 'text-trail-green' : 'text-ink-muted hover:text-ink-primary'}`}
+          >
+            Reply
+          </button>
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              className="text-ink-muted hover:text-error-clay transition-colors"
+              aria-label="Delete"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 function PostItem({
@@ -103,8 +171,6 @@ function PostItem({
     }
   }
 
-  const isPostHighlighted = highlightId === post._id
-
   return (
     <>
       <DeleteConfirmModal
@@ -113,136 +179,65 @@ function PostItem({
         onConfirm={handleDeleteConfirmed}
       />
 
-      <div className="border-b border-border-color last:border-0 py-4">
-        <div
-          className={`flex items-start gap-3 rounded-btn transition-colors duration-200 ${
-            isPostHighlighted ? 'bg-trail-green/8 ring-1 ring-trail-green/40 -mx-2 px-2 py-2' : ''
-          }`}
-        >
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-full bg-trail-green/10 flex items-center justify-center text-trail-green text-small font-medium shrink-0">
-            {post.author.name.charAt(0).toUpperCase()}
-          </div>
+      <Comment
+        avatarClass="bg-trail-green/10 text-trail-green"
+        avatarLabel={post.author.name.charAt(0).toUpperCase()}
+        name={post.author.name}
+        isInstructor={post.isInstructorReply}
+        createdAt={post.createdAt}
+        content={post.content}
+        canDelete={userId === post.author._id}
+        onDelete={() => setDeleteTarget(post._id)}
+        onReply={() => { onStartReply(post._id, post._id, post.author.name); setRepliesOpen(true) }}
+        highlighted={highlightId === post._id}
+      >
+        {post.replies?.length > 0 && (
+          <button
+            onClick={() => setRepliesOpen((o) => !o)}
+            className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-muted hover:text-ink-primary transition-colors"
+          >
+            <span className="inline-block w-4 h-px bg-ink-muted/40" />
+            {repliesOpen ? 'Hide' : 'View'} {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
+            <svg
+              className={`w-3 h-3 transition-transform ${repliesOpen ? 'rotate-180' : ''}`}
+              viewBox="0 0 20 20" fill="currentColor"
+            >
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
 
-          <div className="flex-1 min-w-0">
-            {/* Author row */}
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-small font-medium text-ink-primary">{post.author.name}</span>
-              {post.isInstructorReply && (
-                <span className="text-micro bg-trail-amber/10 text-trail-amber px-2 py-0.5 rounded-pill">Instructor</span>
-              )}
-              <span className="text-micro text-ink-muted">{timeAgo(post.createdAt)}</span>
-              {userId === post.author._id && (
-                <button
-                  onClick={() => setDeleteTarget(post._id)}
-                  title="Delete post"
-                  className="ml-auto text-ink-muted hover:text-error-clay transition-colors p-1 rounded"
-                  aria-label="Delete post"
-                >
-                  <TrashIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Content */}
-            <p className="text-small text-ink-primary whitespace-pre-wrap">{post.content}</p>
-
-            {/* Reply toggle row (TikTok: "Reply" + "View N replies" under the comment) */}
-            <div className="flex items-center gap-4 mt-2">
-              <button
-                onClick={() => { onStartReply(post._id, post._id, post.author.name); setRepliesOpen(true) }}
-                className={`text-micro font-semibold transition-colors ${
-                  isPostHighlighted ? 'text-trail-green' : 'text-ink-muted hover:text-ink-primary'
-                }`}
-              >
-                Reply
-              </button>
-              {post.replies?.length > 0 && (
-                <button
-                  onClick={() => setRepliesOpen((o) => !o)}
-                  className="inline-flex items-center gap-1 text-micro font-semibold text-ink-muted hover:text-ink-primary transition-colors"
-                >
-                  <span className="inline-block w-4 h-px bg-border-color" />
-                  {repliesOpen ? 'Hide' : 'View'} {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
-                  <svg
-                    className={`w-3 h-3 transition-transform ${repliesOpen ? 'rotate-180' : ''}`}
-                    viewBox="0 0 20 20" fill="currentColor"
-                  >
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Replies — TikTok-style thread: a curved connector elbows out of the
-                vertical trunk line into each reply avatar. */}
-            <AnimatePresence initial={false}>
-              {repliesOpen && post.replies?.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="relative mt-3 pl-9 space-y-4">
-                    {/* vertical trunk */}
-                    <div className="absolute left-3 top-0 bottom-5 w-px bg-border-color" aria-hidden="true" />
-                    {post.replies.map((reply) => {
-                      const isReplyHighlighted = highlightId === reply._id
-                      return (
-                        <div
-                          key={reply._id}
-                          className={`relative flex items-start gap-2 rounded-btn transition-colors duration-200 ${
-                            isReplyHighlighted ? 'bg-trail-green/8 ring-1 ring-trail-green/40 -mx-2 px-2 py-1.5' : ''
-                          }`}
-                        >
-                          {/* curved elbow connector: vertical + rounded corner into a
-                              horizontal stub that points at the reply avatar */}
-                          <span
-                            className="absolute -left-6 -top-3 w-5 h-7 border-l-2 border-b-2 border-border-color rounded-bl-2xl"
-                            aria-hidden="true"
-                          />
-                          <div className="w-6 h-6 rounded-full bg-signal-blue/10 flex items-center justify-center text-signal-blue text-micro font-medium shrink-0">
-                            {reply.author.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-small font-medium text-ink-primary">{reply.author.name}</span>
-                              {reply.isInstructorReply && (
-                                <span className="text-micro bg-trail-amber/10 text-trail-amber px-2 py-0.5 rounded-pill">Instructor</span>
-                              )}
-                              <span className="text-micro text-ink-muted">{timeAgo(reply.createdAt)}</span>
-                              {userId === reply.author._id && (
-                                <button
-                                  onClick={() => setDeleteTarget(reply._id)}
-                                  title="Delete reply"
-                                  className="ml-auto text-ink-muted hover:text-error-clay transition-colors p-1 rounded"
-                                  aria-label="Delete reply"
-                                >
-                                  <TrashIcon className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                            <p className="text-small text-ink-primary whitespace-pre-wrap">{reply.content}</p>
-                            <button
-                              onClick={() => onStartReply(post._id, reply._id, reply.author.name)}
-                              className={`mt-1 text-micro font-semibold transition-colors ${
-                                isReplyHighlighted ? 'text-trail-green' : 'text-ink-muted hover:text-ink-primary'
-                              }`}
-                            >
-                              Reply
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
+        {/* Replies — indented under the parent with each avatar aligned to
+            the trunk, exactly like TikTok's reply list. No border lines. */}
+        <AnimatePresence initial={false}>
+          {repliesOpen && post.replies?.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 space-y-3">
+                {post.replies.map((reply) => (
+                  <Comment
+                    key={reply._id}
+                    avatarClass="bg-signal-blue/10 text-signal-blue"
+                    avatarLabel={reply.author.name.charAt(0).toUpperCase()}
+                    name={reply.author.name}
+                    isInstructor={reply.isInstructorReply}
+                    createdAt={reply.createdAt}
+                    content={reply.content}
+                    canDelete={userId === reply.author._id}
+                    onDelete={() => setDeleteTarget(reply._id)}
+                    onReply={() => onStartReply(post._id, reply._id, reply.author.name)}
+                    highlighted={highlightId === reply._id}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Comment>
     </>
   )
 }
@@ -334,15 +329,17 @@ export default function DiscussionPanel({ courseId, lectureId }: Props) {
   }
 
   return (
-    // Fixed-height TikTok-style panel: comment feed scrolls independently,
-    // the composer stays pinned to the bottom of the panel at all times.
-    <div className="flex flex-col h-[min(70vh,640px)]">
-      <h3 className="font-display text-heading text-ink-primary mb-3 shrink-0">
+    // Fixed-height TikTok-style panel: comment feed scrolls independently
+    // inside its own rounded surface, the composer stays pinned to the
+    // bottom of the panel at all times — no hard divider lines anywhere,
+    // just soft elevation to separate the two zones.
+    <div className="flex flex-col h-[min(70vh,640px)] rounded-card bg-bg-surface shadow-sm overflow-hidden">
+      <h3 className="font-display text-heading text-ink-primary px-4 pt-4 pb-2 shrink-0">
         {lectureId ? 'Lecture Q&A' : 'Course Q&A'}
       </h3>
 
       {/* Scrollable feed */}
-      <div className="flex-1 overflow-y-auto pr-1 min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0">
         {loading ? (
           <div className="space-y-3">
             {[1, 2].map((i) => <div key={i} className="h-16 bg-bg-surface-alt rounded-card animate-pulse" />)}
@@ -352,7 +349,7 @@ export default function DiscussionPanel({ courseId, lectureId }: Props) {
             No questions yet — be the first to ask!
           </p>
         ) : (
-          <div>
+          <div className="space-y-4">
             {posts.map((post) => (
               <PostItem
                 key={post._id}
@@ -369,8 +366,9 @@ export default function DiscussionPanel({ courseId, lectureId }: Props) {
 
       {/* Static composer — pinned at the bottom of the panel, TikTok-style.
           Doubles as "ask a question" (default) and "reply" (when a
-          Reply button above was tapped) modes. */}
-      <div className="shrink-0 border-t border-border-color bg-bg-surface pt-3 mt-2">
+          Reply button above was tapped) modes. Elevated with a soft top
+          shadow instead of a hard border line to separate it from the feed. */}
+      <div className="shrink-0 bg-bg-surface px-4 pt-3 pb-3 shadow-[0_-6px_12px_-10px_rgba(0,0,0,0.18)]">
         {user ? (
           <>
             <AnimatePresence>
@@ -390,32 +388,41 @@ export default function DiscussionPanel({ courseId, lectureId }: Props) {
                       className="text-ink-muted hover:text-error-clay transition-colors"
                       aria-label="Cancel reply"
                     >
-                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
+                      <XIcon className="w-3 h-3" />
                     </button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            <textarea
-              value={composerText}
-              onChange={(e) => setComposerText(e.target.value)}
-              placeholder={replyTarget ? 'Write a reply…' : 'Ask a question or share a thought…'}
-              rows={2}
-              className="w-full px-3 py-2 rounded-btn border border-border-color bg-bg-surface text-small text-ink-primary focus:outline-none focus:border-trail-green focus:ring-1 focus:ring-trail-green resize-none"
-              maxLength={2000}
-            />
-            {error && <p className="text-small text-error-clay mt-1">{error}</p>}
-            <div className="flex items-center justify-between mt-2 pb-1">
-              <span className="text-micro text-ink-muted">{composerText.length}/2000</span>
-              <Button size="sm" isLoading={submitting} onClick={handleSubmit} disabled={!composerText.trim()}>
-                {replyTarget ? 'Post reply' : 'Post question'}
+            <div className="flex items-end gap-2 bg-bg-surface-alt rounded-pill px-4 py-2">
+              <textarea
+                value={composerText}
+                onChange={(e) => setComposerText(e.target.value)}
+                placeholder={replyTarget ? 'Write a reply…' : 'Ask a question or share a thought…'}
+                rows={1}
+                className="flex-1 bg-transparent text-small text-ink-primary placeholder:text-ink-muted focus:outline-none resize-none py-1"
+                maxLength={2000}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSubmit()
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                isLoading={submitting}
+                onClick={handleSubmit}
+                disabled={!composerText.trim()}
+                className="!rounded-pill shrink-0"
+              >
+                {replyTarget ? 'Reply' : 'Post'}
               </Button>
             </div>
+            {error && <p className="text-small text-error-clay mt-1.5">{error}</p>}
           </>
         ) : (
-          <p className="text-small text-ink-muted pb-3">Sign in to ask questions.</p>
+          <p className="text-small text-ink-muted py-1">Sign in to ask questions.</p>
         )}
       </div>
     </div>

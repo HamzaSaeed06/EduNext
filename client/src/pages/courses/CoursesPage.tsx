@@ -5,6 +5,7 @@ import PublicNavbar from '../../components/layout/PublicNavbar'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import courseService, { type Course } from '../../services/courseService'
+import { GraduationCapIcon, StarIcon } from '../../components/ui/Icons'
 
 const LEVELS = ['All', 'Beginner', 'Intermediate', 'Advanced']
 const SORTS = [
@@ -132,7 +133,7 @@ export default function CoursesPage() {
                       <img src={course.thumbnail} alt={course.title} className="w-full h-32 object-cover rounded-btn mb-3" />
                     ) : (
                       <div className="w-full h-32 bg-bg-surface-alt rounded-btn mb-3 flex items-center justify-center">
-                        <span className="text-ink-muted text-display-l">🎓</span>
+                        <GraduationCapIcon className="w-10 h-10 text-ink-muted" />
                       </div>
                     )}
                     <div className="flex items-start justify-between mb-2">
@@ -140,7 +141,9 @@ export default function CoursesPage() {
                         {course.level}
                       </span>
                       {course.averageRating > 0 && (
-                        <span className="text-micro font-mono text-trail-amber">★ {course.averageRating.toFixed(1)}</span>
+                        <span className="flex items-center gap-0.5 text-micro font-mono text-trail-amber">
+                          <StarIcon className="w-3 h-3" /> {course.averageRating.toFixed(1)}
+                        </span>
                       )}
                     </div>
                     <h3 className="font-display text-heading leading-snug text-ink-primary mb-1 flex-1">{course.title}</h3>

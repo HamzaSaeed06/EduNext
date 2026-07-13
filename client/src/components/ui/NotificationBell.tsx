@@ -1,11 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ComponentType, type SVGProps } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNotifications, type AppNotification } from '../../hooks/useNotifications'
+import { CheckCircleIcon, XCircleIcon, BellIcon } from './Icons'
 
-const ICON_MAP: Record<string, string> = {
-  course_approved: '✅',
-  course_rejected: '❌',
-  default: '🔔',
+type NotificationIconComponent = ComponentType<SVGProps<SVGSVGElement>>
+
+const ICON_MAP: Record<string, NotificationIconComponent> = {
+  course_approved: CheckCircleIcon,
+  course_rejected: XCircleIcon,
+  default: BellIcon,
 }
 
 function NotificationItem({ n }: { n: AppNotification }) {
@@ -17,10 +20,12 @@ function NotificationItem({ n }: { n: AppNotification }) {
     return `${Math.floor(diff / 3600)}h ago`
   }
 
+  const IconComponent = ICON_MAP[n.type] ?? ICON_MAP.default
+
   return (
     <div className={`px-4 py-3 border-b border-border-color last:border-0 ${!n.read ? 'bg-signal-blue/5' : ''}`}>
       <div className="flex items-start gap-2">
-        <span className="text-base shrink-0">{ICON_MAP[n.type] || ICON_MAP.default}</span>
+        <IconComponent className={`w-4 h-4 shrink-0 mt-0.5 ${n.type === 'course_approved' ? 'text-trail-green' : n.type === 'course_rejected' ? 'text-error-clay' : 'text-ink-muted'}`} />
         <div className="flex-1 min-w-0">
           <p className="text-small text-ink-primary">{n.message}</p>
           <p className="text-micro text-ink-muted mt-0.5">{timeAgo()}</p>

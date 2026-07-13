@@ -5,6 +5,7 @@ import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import api from '../../services/api'
+import { GraduationCapIcon, MedalIcon } from '../../components/ui/Icons'
 
 interface Certificate {
   _id: string
@@ -65,7 +66,7 @@ export default function CertificatesPage() {
           </div>
         ) : certificates.length === 0 ? (
           <Card className="p-10 text-center">
-            <p className="text-display-s mb-3">🎓</p>
+            <GraduationCapIcon className="w-10 h-10 mx-auto mb-3 text-ink-muted" />
             <p className="text-body text-ink-muted mb-4">No certificates yet — complete a course to earn your first one.</p>
             <Link to="/courses"><Button>Browse courses</Button></Link>
           </Card>
@@ -80,7 +81,7 @@ export default function CertificatesPage() {
               >
                 <Card className="p-6 border-trail-amber/20 bg-gradient-to-br from-trail-amber/5 to-transparent">
                   <div className="flex items-start gap-4">
-                    <span className="text-2xl shrink-0">🏅</span>
+                    <MedalIcon className="w-6 h-6 shrink-0 text-trail-amber" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-display text-heading text-ink-primary truncate">{cert.courseTitle}</h3>
                       <p className="text-small text-ink-muted mb-1">Instructor: {cert.instructorName}</p>

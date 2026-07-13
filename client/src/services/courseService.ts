@@ -194,6 +194,11 @@ const courseService = {
     await api.delete(`/discussions/${postId}`)
   },
 
+  async issueCertificate(slug: string): Promise<{ certificate: { certificateId: string } }> {
+    const res = await api.post(`/courses/${slug}/certificate`)
+    return res.data.data
+  },
+
   async getCourseReviews(slug: string, page = 1, limit = 10): Promise<{
     reviews: Array<{
       id: string

@@ -5,7 +5,9 @@ import { useSelector } from 'react-redux'
 import AppShell from '../../components/layout/AppShell'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
+import TrailProgress from '../../components/ui/TrailProgress'
 import ReviewsSection from '../../components/courses/ReviewsSection'
+import { PlayCircleIcon, DocumentIcon, NoteIcon, BookOpenIcon, TicketFreeIcon, UsersIcon, StarIcon, CheckIcon, TrophyIcon } from '../../components/ui/Icons'
 import type { RootState } from '../../features/store'
 import courseService, { type Course, type Section, type Lecture } from '../../services/courseService'
 import { getErrorMessage } from '../../services/api'
@@ -20,6 +22,10 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [enrolling, setEnrolling] = useState(false)
   const [enrolled, setEnrolled] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [claimingCertificate, setClaimingCertificate] = useState(false)
   const [error, setError] = useState('')
 
   const fetchCourseDetails = () => {
@@ -31,14 +37,36 @@ export default function CourseDetailPage() {
         if (token) {
           courseService.getMyEnrollments()
             .then((res) => {
-              const isEnrolled = res.enrollments.some((e) => e.course._id === d.course._id)
-              setEnrolled(isEnrolled)
+              const enrollment = res.enrollments.find((e) => e.course._id === d.course._id)
+              setEnrolled(!!enrollment)
+              if (enrollment) {
+                setProgress(enrollment.progress)
+                setIsCompleted(enrollment.isCompleted)
+                const done = new Set<string>()
+                ;(enrollment.completedLectures || []).forEach((lp) => {
+                  if (lp.completed) done.add(lp.lecture)
+                })
+                setCompletedIds(done)
+              }
             })
             .catch(console.error)
         }
       })
       .catch(() => setError('Course not found'))
       .finally(() => setLoading(false))
+  }
+
+  const handleClaimCertificate = async () => {
+    if (!slug) return
+    setClaimingCertificate(true)
+    try {
+      await courseService.issueCertificate(slug)
+      navigate('/my-certificates')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to claim certificate'))
+    } finally {
+      setClaimingCertificate(false)
+    }
   }
 
   useEffect(() => {
@@ -116,11 +144,41 @@ export default function CourseDetailPage() {
             <p className="text-small text-ink-muted mb-6">By <span className="text-ink-primary font-medium">{course.instructor?.name}</span></p>
 
             <div className="flex flex-wrap gap-4 text-small text-ink-muted mb-8">
-              <span>📚 {totalLectures} lectures</span>
-              {freeLectures > 0 && <span>🆓 {freeLectures} free previews</span>}
-              <span>👥 {course.enrollmentCount.toLocaleString()} enrolled</span>
-              {course.averageRating > 0 && <span>★ {course.averageRating.toFixed(1)} rating</span>}
+              <span className="inline-flex items-center gap-1.5"><BookOpenIcon className="w-4 h-4" /> {totalLectures} lectures</span>
+              {freeLectures > 0 && <span className="inline-flex items-center gap-1.5"><TicketFreeIcon className="w-4 h-4" /> {freeLectures} free previews</span>}
+              <span className="inline-flex items-center gap-1.5"><UsersIcon className="w-4 h-4" /> {course.enrollmentCount.toLocaleString()} enrolled</span>
+              {course.averageRating > 0 && <span className="inline-flex items-center gap-1.5"><StarIcon className="w-4 h-4 text-trail-amber" /> {course.averageRating.toFixed(1)} rating</span>}
             </div>
+
+            {/* Progress tracker — same visual language as the course player
+                sidebar, so enrolled students can see where they stand
+                without opening a lecture. */}
+            {enrolled && (
+              <Card className="p-4 mb-6">
+                <div className="flex items-center justify-between text-small mb-1.5">
+                  <span className="text-ink-muted">Your progress</span>
+                  <span className="text-trail-green font-mono text-micro">{progress}%</span>
+                </div>
+                <TrailProgress
+                  progress={progress}
+                  size="mini"
+                  completedCount={completedIds.size}
+                  totalCount={totalLectures}
+                />
+                <p className="text-micro text-ink-muted mt-1.5">{completedIds.size}/{totalLectures} lectures done</p>
+
+                {isCompleted && (
+                  <div className="mt-4 pt-4 border-t border-border-color flex items-center justify-between gap-3 flex-wrap">
+                    <span className="inline-flex items-center gap-2 text-small font-medium text-trail-green">
+                      <TrophyIcon className="w-5 h-5" /> Course completed
+                    </span>
+                    <Button size="sm" isLoading={claimingCertificate} onClick={handleClaimCertificate}>
+                      Get certificate
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Curriculum */}
             {sections.length > 0 && (
@@ -131,14 +189,22 @@ export default function CourseDetailPage() {
                     <Card key={section._id} className="p-4">
                       <h3 className="font-display text-subheading text-ink-primary mb-2">{section.title}</h3>
                       <ul className="space-y-1">
-                        {section.lectures.map((lec: Lecture) => (
-                          <li key={lec._id} className="flex items-center gap-2 text-small text-ink-muted">
-                            <span>{lec.type === 'video' ? '▶' : lec.type === 'pdf' ? '📄' : '📝'}</span>
-                            <span>{lec.title}</span>
-                            {lec.isFree && <span className="text-micro text-trail-green bg-trail-green/10 px-1.5 rounded-pill">Free</span>}
-                            {lec.duration > 0 && <span className="ml-auto">{Math.round(lec.duration / 60)}m</span>}
-                          </li>
-                        ))}
+                        {section.lectures.map((lec: Lecture) => {
+                          const isDone = completedIds.has(lec._id)
+                          const TypeIcon = lec.type === 'video' ? PlayCircleIcon : lec.type === 'pdf' ? DocumentIcon : NoteIcon
+                          return (
+                            <li key={lec._id} className="flex items-center gap-2 text-small text-ink-muted">
+                              {isDone ? (
+                                <CheckIcon className="w-4 h-4 text-trail-green shrink-0" />
+                              ) : (
+                                <TypeIcon className="w-4 h-4 shrink-0" />
+                              )}
+                              <span className={isDone ? 'text-ink-muted' : ''}>{lec.title}</span>
+                              {lec.isFree && <span className="text-micro text-trail-green bg-trail-green/10 px-1.5 rounded-pill">Free</span>}
+                              {lec.duration > 0 && <span className="ml-auto">{Math.round(lec.duration / 60)}m</span>}
+                            </li>
+                          )
+                        })}
                       </ul>
                     </Card>
                   ))}

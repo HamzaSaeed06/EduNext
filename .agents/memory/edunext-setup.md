@@ -54,3 +54,13 @@ description: Key architectural decisions, port config, AI provider, test pattern
 ## Sanitizing errors shown to end users
 - Two layers are both needed, or raw technical errors leak through even after backend sanitization: (1) server-side, `errorHandler` must always replace 500-level `err.message` with a generic string (not just in production) since third-party provider errors (e.g. Gemini quota/HTTP error JSON) otherwise bubble straight to the client; (2) client-side, code must read `err.response.data.error.message` from the axios error, not `err.message` — axios's own `err.message` is a generic string like "Request failed with status code 400" that never carries the backend's curated message, so using it makes every error unhelpful/generic-looking (which itself reads as "raw code" to non-technical users) even though it isn't technically an information leak.
 - **How to apply:** centralize this as a small `getErrorMessage(err, fallback)` helper (checks `axios.isAxiosError`, falls back to network-error copy when `!err.response`) and use it everywhere `catch (err)` sets user-facing error state, instead of ad hoc `err instanceof Error ? err.message : ...`.
+
+## Certificate/completion flow was backend-only
+- The certificate issue/download endpoints existed and worked server-side, but no frontend page ever called the issue endpoint or showed a "course completed" state — a fully working backend feature can still be completely unreachable by users if nothing in the client links to it.
+- **How to apply:** when a student reports a completion/reward-type button "does nothing", check whether the button's onClick is actually a no-op by design (e.g. only wired for navigation between lectures) before assuming the progress math is broken — trace the whole path from click to backend route, not just the percentage calculation.
+
+## Gemini free-tier quota can be 0
+- Even with a valid `GEMINI_API_KEY`, Gemini can return 429 with "limit: 0" for `generate_content_free_tier_requests` — this is an account/billing-tier limit on Google's side, not a code or key-validity bug. Don't debug the app's AI integration code for this; it's an external quota issue for the user to resolve on their Google AI Studio/Cloud billing.
+
+## Shared icon library for emoji replacement
+- `client/src/components/ui/Icons.tsx` holds ~30 named 24×24 stroke line-icon components (`stroke="currentColor"`, `strokeWidth 1.5`) that replaced all emoji-as-icon usage across the app. Reuse/extend this file for any new icon needs instead of reaching for emoji glyphs again.

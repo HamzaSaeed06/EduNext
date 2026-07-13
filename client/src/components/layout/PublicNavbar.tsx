@@ -6,16 +6,29 @@ import type { RootState } from '../../features/store'
 import { clearCredentials } from '../../features/auth/authSlice'
 import { setAccessToken } from '../../services/api'
 import authService from '../../services/authService'
+import {
+  GlobeIcon,
+  ChartBarIcon,
+  PaletteIcon,
+  RobotIcon,
+  BriefcaseIcon,
+  MegaphoneIcon,
+  CodeIcon,
+  LockIcon,
+} from '../ui/Icons'
+import type { SVGProps } from 'react'
 
-const CATEGORIES = [
-  { label: 'Web Development', icon: '🌐', q: 'web' },
-  { label: 'Data Science', icon: '📊', q: 'data' },
-  { label: 'Design & UX', icon: '🎨', q: 'design' },
-  { label: 'Machine Learning', icon: '🤖', q: 'ml' },
-  { label: 'Business', icon: '💼', q: 'business' },
-  { label: 'Marketing', icon: '📣', q: 'marketing' },
-  { label: 'Programming', icon: '💻', q: 'programming' },
-  { label: 'Cybersecurity', icon: '🔒', q: 'security' },
+type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element
+
+const CATEGORIES: { label: string; icon: IconComponent; q: string }[] = [
+  { label: 'Web Development', icon: GlobeIcon, q: 'web' },
+  { label: 'Data Science', icon: ChartBarIcon, q: 'data' },
+  { label: 'Design & UX', icon: PaletteIcon, q: 'design' },
+  { label: 'Machine Learning', icon: RobotIcon, q: 'ml' },
+  { label: 'Business', icon: BriefcaseIcon, q: 'business' },
+  { label: 'Marketing', icon: MegaphoneIcon, q: 'marketing' },
+  { label: 'Programming', icon: CodeIcon, q: 'programming' },
+  { label: 'Cybersecurity', icon: LockIcon, q: 'security' },
 ]
 
 export default function PublicNavbar() {
@@ -95,7 +108,7 @@ export default function PublicNavbar() {
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-small text-ink-muted hover:text-ink-primary hover:bg-bg-surface-alt transition-colors text-left"
                   >
-                    <span>{cat.icon}</span>
+                    <cat.icon className="w-4 h-4 shrink-0" />
                     <span>{cat.label}</span>
                   </button>
                 ))}

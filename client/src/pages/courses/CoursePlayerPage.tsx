@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card'
 import TrailProgress from '../../components/ui/TrailProgress'
 import DiscussionPanel from '../../components/ui/DiscussionPanel'
 import AIChatWidget from '../../components/ui/AIChatWidget'
+import { NoteIcon, PartyIcon, SadFaceIcon, CheckIcon, XIcon, LightbulbIcon, DocumentIcon, ArrowRightIcon } from '../../components/ui/Icons'
 import type { RootState } from '../../features/store'
 import courseService, {
   type Course, type Section, type Lecture, type LectureProgress,
@@ -74,7 +75,7 @@ function QuizPlayer({
   if (!quiz || !quiz.isPublished) {
     return (
       <div className="rounded-card border border-border-color p-8 text-center text-ink-muted">
-        <p className="text-display-s mb-2">📝</p>
+        <NoteIcon className="w-9 h-9 mx-auto mb-2" />
         <p className="text-body font-medium text-ink-primary mb-1">Quiz not available yet</p>
         <p className="text-small">The instructor hasn't published a quiz for this lecture.</p>
       </div>
@@ -85,7 +86,7 @@ function QuizPlayer({
   if (alreadyPassed && !retakeMode && !result) {
     return (
       <div className="rounded-card border border-trail-green/30 bg-trail-green/5 p-8 text-center">
-        <p className="text-display-s mb-2">🎉</p>
+        <PartyIcon className="w-9 h-9 mx-auto mb-2 text-trail-green" />
         <p className="text-body font-semibold text-trail-green mb-1">Quiz passed!</p>
         <p className="text-small text-ink-muted mb-4">You've already passed this quiz. The next section is unlocked.</p>
         <button onClick={() => setRetakeMode(true)} className="text-small text-trail-green hover:underline">
@@ -101,7 +102,11 @@ function QuizPlayer({
     return (
       <div className={`rounded-card border p-6 ${passed ? 'border-trail-green/30 bg-trail-green/5' : 'border-error-clay/30 bg-error-clay/5'}`}>
         <div className="text-center mb-6">
-          <p className="text-display-s mb-2">{passed ? '🎉' : '😔'}</p>
+          {passed ? (
+            <PartyIcon className="w-9 h-9 mx-auto mb-2 text-trail-green" />
+          ) : (
+            <SadFaceIcon className="w-9 h-9 mx-auto mb-2 text-error-clay" />
+          )}
           <p className={`font-display text-heading-l font-bold mb-1 ${passed ? 'text-trail-green' : 'text-error-clay'}`}>
             {passed ? 'You passed!' : 'Not quite'}
           </p>
@@ -118,11 +123,14 @@ function QuizPlayer({
             return (
               <div key={q._id} className={`p-3 rounded-btn border text-small ${fb?.correct ? 'border-trail-green/20 bg-trail-green/5' : 'border-error-clay/20 bg-error-clay/5'}`}>
                 <p className="font-medium text-ink-primary mb-1">Q{qi + 1}. {q.text}</p>
-                <p className={fb?.correct ? 'text-trail-green' : 'text-error-clay'}>
-                  {fb?.correct ? '✓ Correct' : '✗ Incorrect'}
+                <p className={`inline-flex items-center gap-1 ${fb?.correct ? 'text-trail-green' : 'text-error-clay'}`}>
+                  {fb?.correct ? <CheckIcon className="w-3.5 h-3.5" /> : <XIcon className="w-3.5 h-3.5" />}
+                  {fb?.correct ? 'Correct' : 'Incorrect'}
                 </p>
                 {!fb?.correct && fb?.explanation && (
-                  <p className="text-ink-muted mt-1 text-micro">💡 {fb.explanation}</p>
+                  <p className="text-ink-muted mt-1 text-micro inline-flex items-start gap-1">
+                    <LightbulbIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {fb.explanation}
+                  </p>
                 )}
               </div>
             )
@@ -136,8 +144,8 @@ function QuizPlayer({
             </Button>
           )}
           {passed && nextLectureHelper && (
-            <span className="text-small text-trail-green font-medium self-center">
-              ✓ Next section is now unlocked!
+            <span className="text-small text-trail-green font-medium self-center inline-flex items-center gap-1">
+              <CheckIcon className="w-4 h-4" /> Next section is now unlocked!
             </span>
           )}
         </div>
@@ -511,7 +519,7 @@ export default function CoursePlayerPage() {
                   {/* PDF viewer */}
                   {activeLecture.type === 'pdf' && activeLecture.contentUrl && (
                     <div className="bg-bg-surface-alt rounded-card mb-6 p-8 text-center">
-                      <p className="text-body text-ink-muted mb-4">📄 PDF document</p>
+                      <p className="text-body text-ink-muted mb-4 inline-flex items-center gap-2"><DocumentIcon className="w-5 h-5" /> PDF document</p>
                       <a
                         href={activeLecture.contentUrl}
                         target="_blank"
@@ -547,11 +555,22 @@ export default function CoursePlayerPage() {
                         if (!completedIds.has(activeLecture._id)) {
                           markComplete(activeLecture)
                         }
-                        if (nextLecture) setActiveLecture(nextLecture)
+                        if (nextLecture) {
+                          setActiveLecture(nextLecture)
+                        } else {
+                          // Last lecture, already complete — take the student
+                          // to the course page to see their finished progress
+                          // and claim their certificate.
+                          navigate(`/courses/${slug}`)
+                        }
                       }}
                     >
                       {completedIds.has(activeLecture._id)
-                        ? nextLecture ? 'Next →' : 'All done ✓'
+                        ? nextLecture ? (
+                          <span className="inline-flex items-center gap-1">Next <ArrowRightIcon className="w-3.5 h-3.5" /></span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">All done <CheckIcon className="w-3.5 h-3.5" /></span>
+                        )
                         : 'Mark complete & continue'}
                     </Button>
                   </div>

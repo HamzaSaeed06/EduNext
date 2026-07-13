@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Button from '../../components/ui/Button'
 import api from '../../services/api'
+import { PartyIcon, BookOpenIcon } from '../../components/ui/Icons'
 
 interface Question {
   _id: string
@@ -70,7 +71,11 @@ export default function QuizPlayer({ quizId, onComplete, onClose }: Props) {
     return (
       <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="p-6">
         <div className={`text-center mb-6 p-6 rounded-card ${result.passed ? 'bg-trail-green/10 border border-trail-green/20' : 'bg-error-clay/10 border border-error-clay/20'}`}>
-          <p className="text-display-s font-display mb-1">{result.passed ? '🎉 Passed!' : '📚 Try again'}</p>
+          <p className="text-display-s font-display mb-1 flex items-center justify-center gap-2">
+            {result.passed
+              ? <><PartyIcon className="w-7 h-7" /> Passed!</>
+              : <><BookOpenIcon className="w-7 h-7" /> Try again</>}
+          </p>
           <p className="text-heading font-mono text-ink-primary">{result.score}%</p>
           <p className="text-small text-ink-muted mt-1">{result.earned}/{result.totalQuestions} correct · {result.passingScore}% to pass</p>
         </div>
