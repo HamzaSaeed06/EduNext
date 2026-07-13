@@ -245,16 +245,28 @@ const reviewCourse = asyncHandler(async (req, res) => {
 })
 
 // POST /api/v1/lectures/:id/upload-signature
+// Supports video (mp4/webm/quicktime) and PDF uploads. Returns a signed
+// upload token so the client can upload directly to Cloudinary.
 const getUploadSignature = asyncHandler(async (req, res) => {
   const { fileSize, fileType } = req.body
-  const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
-  const MAX_VIDEO_BYTES = 500 * 1024 * 1024  // 500 MB
 
-  if (fileType && !ALLOWED_VIDEO_TYPES.includes(fileType)) {
-    throw new AppError('Invalid file type. Only MP4, WebM, and QuickTime videos are allowed.', 400, 'VALIDATION_ERROR')
+  const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
+  const ALLOWED_PDF_TYPES = ['application/pdf']
+  const ALL_ALLOWED = [...ALLOWED_VIDEO_TYPES, ...ALLOWED_PDF_TYPES]
+  const MAX_VIDEO_BYTES = 500 * 1024 * 1024  // 500 MB
+  const MAX_PDF_BYTES = 50 * 1024 * 1024    // 50 MB
+
+  const isPdf = ALLOWED_PDF_TYPES.includes(fileType)
+  const isVideo = ALLOWED_VIDEO_TYPES.includes(fileType)
+
+  if (fileType && !ALL_ALLOWED.includes(fileType)) {
+    throw new AppError('Invalid file type. Allowed: MP4, WebM, QuickTime videos or PDF documents.', 400, 'VALIDATION_ERROR')
   }
-  if (fileSize && fileSize > MAX_VIDEO_BYTES) {
-    throw new AppError('File size exceeds the 500MB limit.', 400, 'VALIDATION_ERROR')
+  if (fileSize && isVideo && fileSize > MAX_VIDEO_BYTES) {
+    throw new AppError('File size exceeds the 500MB video limit.', 400, 'VALIDATION_ERROR')
+  }
+  if (fileSize && isPdf && fileSize > MAX_PDF_BYTES) {
+    throw new AppError('File size exceeds the 50MB PDF limit.', 400, 'VALIDATION_ERROR')
   }
 
   const lecture = await Lecture.findOne({ _id: req.params.id, isDeleted: false }).populate({ path: 'section', populate: 'course' })
@@ -264,12 +276,10 @@ const getUploadSignature = asyncHandler(async (req, res) => {
     throw new AppError('Forbidden', 403, 'FORBIDDEN')
   }
 
+  const resourceType = isPdf ? 'raw' : 'video'
+  const folder = isPdf ? 'edunext/pdf' : 'edunext/video'
   const timestamp = Math.round(new Date().getTime() / 1000)
-  const folder = `edunext/video`
-  const paramsToSign = {
-    timestamp,
-    folder,
-  }
+  const paramsToSign = { timestamp, folder }
 
   let signature = 'mock_signature'
   const apiKey = process.env.CLOUDINARY_API_KEY || 'mock_api_key'
@@ -288,6 +298,7 @@ const getUploadSignature = asyncHandler(async (req, res) => {
       apiKey,
       cloudName,
       folder,
+      resourceType,
     }
   })
 })

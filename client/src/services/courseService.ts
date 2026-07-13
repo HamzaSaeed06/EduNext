@@ -193,6 +193,11 @@ const courseService = {
     const res = await api.post('/ai/chat', data)
     return res.data.data
   },
+
+  async aiSummarize(courseId: string): Promise<{ summary: string }> {
+    const res = await api.post(`/ai/courses/${courseId}/summarize`)
+    return res.data.data
+  },
 }
 
 export default courseService

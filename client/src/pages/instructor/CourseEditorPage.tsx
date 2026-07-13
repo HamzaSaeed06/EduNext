@@ -10,6 +10,74 @@ import courseService, { type Course, type Section } from '../../services/courseS
 import api, { getErrorMessage } from '../../services/api'
 import { validateVideoFile } from '../../utils/videoUpload'
 
+const MAX_PDF_BYTES = 50 * 1024 * 1024
+
+function validatePdfFile(file: File): { valid: boolean; error?: string } {
+  if (file.type !== 'application/pdf') return { valid: false, error: 'Only PDF files are allowed.' }
+  if (file.size > MAX_PDF_BYTES) return { valid: false, error: 'PDF must be under 50 MB.' }
+  return { valid: true }
+}
+
+function UploadProgressBar({ label, progress }: { label: string; progress: number }) {
+  return (
+    <div className="space-y-2 max-w-md bg-bg-surface p-4 rounded-card border border-border-color">
+      <div className="flex justify-between text-small text-ink-primary font-medium">
+        <span>{label}</span>
+        <span>{progress}%</span>
+      </div>
+      <div className="w-full bg-bg-surface-alt rounded-full h-2">
+        <div
+          className="bg-trail-green h-2 rounded-full transition-all duration-150"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function UploadDropZone({
+  id, accept, label, hint, icon, dragOver, compact,
+  onDragOver, onDragLeave, onDrop, onChange,
+}: {
+  id: string; accept: string; label: string; hint: string; icon?: string
+  dragOver: boolean; compact?: boolean
+  onDragOver: () => void; onDragLeave: () => void
+  onDrop: (file: File) => void; onChange: (file: File) => void
+}) {
+  if (compact) {
+    return (
+      <>
+        <input type="file" accept={accept} id={id} className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f) }} />
+        <label htmlFor={id}
+          className="text-micro text-trail-green hover:underline cursor-pointer whitespace-nowrap">
+          {label}
+        </label>
+      </>
+    )
+  }
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); onDragOver() }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onDrop(f) }}
+      className={`border-2 border-dashed rounded-btn p-6 text-center cursor-pointer transition-colors max-w-md ${
+        dragOver ? 'border-trail-green bg-trail-green/5' : 'border-border-color bg-bg-surface hover:border-trail-green hover:bg-bg-surface-alt'
+      }`}
+    >
+      <input type="file" accept={accept} id={id} className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f) }} />
+      <label htmlFor={id} className="cursor-pointer space-y-2 block">
+        {icon && <div className="text-display-s text-ink-muted">{icon}</div>}
+        <div className="text-small font-medium text-ink-primary">
+          {label} <span className="text-trail-green underline">browse</span>
+        </div>
+        {hint && <div className="text-micro text-ink-muted">{hint}</div>}
+      </label>
+    </div>
+  )
+}
+
 export default function CourseEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -28,6 +96,9 @@ export default function CourseEditorPage() {
   const [newLectureForm, setNewLectureForm] = useState({ title: '', type: 'video' })
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [dragOver, setDragOver] = useState<Record<string, boolean>>({})
+
+  // AI summary state
+  const [generatingSummary, setGeneratingSummary] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -189,6 +260,77 @@ export default function CourseEditorPage() {
     }
   }
 
+  const handlePdfUpload = async (lectureId: string, file: File) => {
+    const validation = validatePdfFile(file)
+    if (!validation.valid) { setError(validation.error!); return }
+    setError('')
+    try {
+      const sigRes = await api.post(`/courses/lectures/${lectureId}/upload-signature`, {
+        fileSize: file.size,
+        fileType: file.type,
+      })
+      const { signature, timestamp, apiKey, cloudName, folder, resourceType } = sigRes.data.data
+
+      setUploadProgress((prev) => ({ ...prev, [lectureId]: 5 }))
+
+      if (signature === 'mock_signature') {
+        for (let p = 10; p <= 100; p += 10) {
+          await new Promise((r) => setTimeout(r, 100))
+          setUploadProgress((prev) => ({ ...prev, [lectureId]: p }))
+        }
+        await api.post(`/courses/lectures/${lectureId}/confirm-upload`, {
+          url: `https://placeholder.edunext.dev/edunext/pdf/${Date.now()}.pdf`,
+          duration: 0,
+        })
+      } else {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('api_key', apiKey)
+        fd.append('timestamp', String(timestamp))
+        fd.append('signature', signature)
+        fd.append('folder', folder)
+
+        const uploadRes = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+          fd,
+          {
+            onUploadProgress: (e) => {
+              const tot = e.total || file.size
+              setUploadProgress((prev) => ({ ...prev, [lectureId]: Math.round((e.loaded * 100) / tot) }))
+            },
+          }
+        )
+
+        await api.post(`/courses/lectures/${lectureId}/confirm-upload`, {
+          url: uploadRes.data.secure_url,
+          duration: 0,
+        })
+      }
+
+      setSuccess('PDF uploaded successfully!')
+      setTimeout(() => setSuccess(''), 2000)
+      await reloadSections()
+    } catch {
+      setError('PDF upload failed. Please try again.')
+    } finally {
+      setUploadProgress((prev) => { const n = { ...prev }; delete n[lectureId]; return n })
+    }
+  }
+
+  const handleGenerateSummary = async () => {
+    if (!id) return
+    setGeneratingSummary(true)
+    setError('')
+    try {
+      const { summary } = await courseService.aiSummarize(id)
+      setForm((f) => ({ ...f, description: summary }))
+    } catch {
+      setError('AI summary failed. Check your Gemini API key or try again.')
+    } finally {
+      setGeneratingSummary(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!id) return
     try {
@@ -261,13 +403,38 @@ export default function CourseEditorPage() {
           <Card className="p-6 space-y-5">
             <Input label="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             <div>
-              <label className="text-small font-medium text-ink-primary mb-1 block">Description</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-small font-medium text-ink-primary">Description</label>
+                <button
+                  type="button"
+                  onClick={handleGenerateSummary}
+                  disabled={generatingSummary}
+                  className="inline-flex items-center gap-1.5 text-micro font-medium text-trail-green hover:text-trail-green/80 disabled:opacity-50 transition-colors"
+                >
+                  {generatingSummary ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Generate with AI
+                    </>
+                  )}
+                </button>
+              </div>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 rows={5}
                 className="w-full px-3 py-2 rounded-btn border border-border-color bg-bg-surface text-body text-ink-primary focus:outline-none focus:border-trail-green focus:ring-1 focus:ring-trail-green"
               />
+              <p className="text-micro text-ink-muted mt-1">AI uses your title, category, and level to write a draft — edit it to make it yours.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
@@ -325,6 +492,7 @@ export default function CourseEditorPage() {
                           </Button>
                         </div>
 
+                        {/* Video upload zone */}
                         {l.type === 'video' && (
                           <div className="mt-2 space-y-3">
                             {l.contentUrl ? (
@@ -332,48 +500,64 @@ export default function CourseEditorPage() {
                                 <video src={l.contentUrl} controls className="w-full h-full" />
                               </div>
                             ) : uploadProgress[l._id] !== undefined ? (
-                              <div className="space-y-2 max-w-md bg-bg-surface p-4 rounded border">
-                                <div className="flex justify-between text-small text-ink-primary font-medium">
-                                  <span>Uploading video...</span>
-                                  <span>{uploadProgress[l._id]}%</span>
-                                </div>
-                                <div className="w-full bg-border rounded-full h-2">
-                                  <div
-                                    className="bg-trail-green h-2 rounded-full transition-all duration-150"
-                                    style={{ width: `${uploadProgress[l._id]}%` }}
-                                  />
-                                </div>
-                              </div>
+                              <UploadProgressBar label="Uploading video…" progress={uploadProgress[l._id]} />
                             ) : (
-                              <div
-                                onDragOver={(e) => { e.preventDefault(); setDragOver((prev) => ({ ...prev, [l._id]: true })) }}
-                                onDragLeave={() => setDragOver((prev) => ({ ...prev, [l._id]: false }))}
-                                onDrop={(e) => {
-                                  e.preventDefault()
-                                  setDragOver((prev) => ({ ...prev, [l._id]: false }))
-                                  const file = e.dataTransfer.files?.[0]
-                                  if (file) handleVideoUpload(l._id, file)
-                                }}
-                                className={`border-2 border-dashed rounded-btn p-6 text-center cursor-pointer transition-colors max-w-md ${dragOver[l._id]
-                                  ? 'border-trail-green bg-trail-green/5'
-                                  : 'border-border-color bg-bg-surface hover:border-trail-green hover:bg-bg-surface-alt'
-                                  }`}
-                              >
-                                <input
-                                  type="file"
-                                  accept="video/*"
-                                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleVideoUpload(l._id, file) }}
-                                  className="hidden"
-                                  id={`file-${l._id}`}
+                              <UploadDropZone
+                                id={`file-${l._id}`}
+                                accept="video/*"
+                                label="Drag video file here or"
+                                hint="MP4, WebM or QuickTime up to 500MB"
+                                dragOver={dragOver[l._id]}
+                                onDragOver={() => setDragOver((p) => ({ ...p, [l._id]: true }))}
+                                onDragLeave={() => setDragOver((p) => ({ ...p, [l._id]: false }))}
+                                onDrop={(file) => { setDragOver((p) => ({ ...p, [l._id]: false })); handleVideoUpload(l._id, file) }}
+                                onChange={(file) => handleVideoUpload(l._id, file)}
+                                icon="🎬"
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* PDF upload zone */}
+                        {l.type === 'pdf' && (
+                          <div className="mt-2 space-y-3">
+                            {l.contentUrl ? (
+                              <div className="flex items-center gap-3 p-4 rounded-card border border-border bg-bg-surface-alt max-w-md">
+                                <span className="text-display-s">📄</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-small font-medium text-ink-primary truncate">PDF uploaded</p>
+                                  <a href={l.contentUrl} target="_blank" rel="noopener noreferrer" className="text-micro text-trail-green hover:underline">
+                                    View PDF ↗
+                                  </a>
+                                </div>
+                                <UploadDropZone
+                                  id={`pdf-replace-${l._id}`}
+                                  accept=".pdf,application/pdf"
+                                  label="Replace"
+                                  hint=""
+                                  dragOver={false}
+                                  onDragOver={() => {}}
+                                  onDragLeave={() => {}}
+                                  onDrop={(file) => handlePdfUpload(l._id, file)}
+                                  onChange={(file) => handlePdfUpload(l._id, file)}
+                                  compact
                                 />
-                                <label htmlFor={`file-${l._id}`} className="cursor-pointer space-y-2 block">
-                                  <div className="text-display-s text-ink-muted">📤</div>
-                                  <div className="text-small font-medium text-ink-primary">
-                                    Drag video file here or <span className="text-trail-green underline">browse</span>
-                                  </div>
-                                  <div className="text-micro text-ink-muted">MP4, WebM or QuickTime up to 500MB</div>
-                                </label>
                               </div>
+                            ) : uploadProgress[l._id] !== undefined ? (
+                              <UploadProgressBar label="Uploading PDF…" progress={uploadProgress[l._id]} />
+                            ) : (
+                              <UploadDropZone
+                                id={`pdf-${l._id}`}
+                                accept=".pdf,application/pdf"
+                                label="Drag PDF here or"
+                                hint="PDF up to 50MB"
+                                dragOver={dragOver[l._id]}
+                                onDragOver={() => setDragOver((p) => ({ ...p, [l._id]: true }))}
+                                onDragLeave={() => setDragOver((p) => ({ ...p, [l._id]: false }))}
+                                onDrop={(file) => { setDragOver((p) => ({ ...p, [l._id]: false })); handlePdfUpload(l._id, file) }}
+                                onChange={(file) => handlePdfUpload(l._id, file)}
+                                icon="📄"
+                              />
                             )}
                           </div>
                         )}
