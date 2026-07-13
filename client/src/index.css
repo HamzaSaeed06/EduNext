@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #F6F7F3;
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: #EDEFE8;
+  --ink-primary: #182620;
+  --ink-muted: #5A6B60;
+  --border: #DADFD3;
+  --trail-green: #2F6F4E;
+  --trail-amber: #E2A03E;
+  --signal-blue: #3556D9;
+  --error-clay: #B5482F;
+}
+
+.dark {
+  --bg-base: #141B16;
+  --bg-surface: #1C251F;
+  --ink-primary: #EAEFE7;
+  --trail-green: #4FA173;
+  --trail-amber: #F0B65C;
+  --signal-blue: #6C87F0;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-base);
+    color: var(--ink-primary);
+  }
+
+  h1, h2 {
+    font-family: 'Fraunces', serif;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--signal-blue);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .trail-animate {
+    transition: stroke-dashoffset 400ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-animate {
+    transition: none;
+  }
+}
