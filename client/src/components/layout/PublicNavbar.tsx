@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useSelector, useDispatch } from 'react-redux'
 import Button from '../ui/Button'
+import type { RootState } from '../../features/store'
+import { clearCredentials } from '../../features/auth/authSlice'
+import { setAccessToken } from '../../services/api'
+import authService from '../../services/authService'
 
 const CATEGORIES = [
   { label: 'Web Development', icon: '🌐', q: 'web' },
@@ -17,6 +22,21 @@ export default function PublicNavbar() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth)
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // ignore — clear local state regardless
+    }
+    setAccessToken(null)
+    dispatch(clearCredentials())
+    navigate('/')
+  }
+
+  const dashboardPath = user?.role === 'admin' ? '/admin' : user?.role === 'instructor' ? '/instructor/courses' : '/dashboard'
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -90,12 +110,25 @@ export default function PublicNavbar() {
 
         {/* Auth buttons */}
         <div className="flex items-center gap-3 shrink-0">
-          <Link to="/login">
-            <Button variant="ghost" size="sm">Sign in</Button>
-          </Link>
-          <Link to="/register">
-            <Button size="sm">Start learning</Button>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <Link to={dashboardPath}>
+                <Button variant="ghost" size="sm">
+                  {user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'Dashboard'}
+                </Button>
+              </Link>
+              <Button size="sm" onClick={handleLogout}>Sign out</Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm">Sign in</Button>
+              </Link>
+              <Link to="/register">
+                <Button size="sm">Start learning</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>
