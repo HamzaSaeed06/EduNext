@@ -13,6 +13,13 @@ const request = require('supertest')
 jest.mock('../src/models/User')
 const User = require('../src/models/User')
 
+jest.mock('../src/services/emailService', () => ({
+  sendVerificationEmail: jest.fn().mockResolvedValue({ messageId: 'test-verification-id' }),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue({ messageId: 'test-reset-id' }),
+  sendWelcomeEmail: jest.fn().mockResolvedValue({ messageId: 'test-welcome-id' }),
+}))
+const { sendWelcomeEmail } = require('../src/services/emailService')
+
 /**
  * Returns a chainable mock that works both as:
  *   await User.findOne(...)           → value
@@ -64,6 +71,7 @@ describe('Auth — Register', () => {
     expect(res.body.success).toBe(true)
     expect(res.body.data.accessToken).toBeDefined()
     expect(res.body.data.user.password).toBeUndefined()
+    expect(sendWelcomeEmail).toHaveBeenCalled()
   })
 
   it('409: duplicate email', async () => {
@@ -249,3 +257,49 @@ describe('Auth — Logout', () => {
     expect(res.body.success).toBe(true)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────
+describe('Auth — Google OAuth', () => {
+  it('GET /api/v1/auth/google: redirects to google consent screen', async () => {
+    const res = await request(app).get('/api/v1/auth/google')
+    expect(res.status).toBe(302)
+    expect(res.headers.location).toContain('accounts.google.com')
+  })
+
+  it('GET /api/v1/auth/google/callback: registers and login mock user', async () => {
+    User.findOne.mockReturnValue(chainable(null)) // New email
+    User.create.mockResolvedValue(mockUser({
+      name: 'Google Student',
+      email: 'google_student@test.com',
+      googleId: 'google_sub_12345',
+      authProvider: 'google',
+      isEmailVerified: true
+    }))
+
+    const res = await request(app)
+      .get('/api/v1/auth/google/callback')
+      .query({ code: 'mock_google_code' })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.location).toContain('token=')
+  })
+
+  it('GET /api/v1/auth/google/callback: links existing local account', async () => {
+    const existingUser = mockUser({ email: 'google_student@test.com', googleId: null })
+    User.findOne.mockReturnValue(chainable(existingUser))
+
+    const res = await request(app)
+      .get('/api/v1/auth/google/callback')
+      .query({ code: 'mock_google_code' })
+
+    expect(res.status).toBe(302)
+    expect(existingUser.save).toHaveBeenCalled()
+    expect(existingUser.googleId).toBe('google_sub_12345')
+  })
+
+  it('GET /api/v1/auth/google/callback: 400 when code is missing', async () => {
+    const res = await request(app).get('/api/v1/auth/google/callback')
+    expect(res.status).toBe(400)
+  })
+})
+

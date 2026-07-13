@@ -5,8 +5,9 @@ import { useSelector } from 'react-redux'
 import AppShell from '../../components/layout/AppShell'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
+import ReviewsSection from '../../components/courses/ReviewsSection'
 import type { RootState } from '../../features/store'
-import courseService, { type Course, type Section } from '../../services/courseService'
+import courseService, { type Course, type Section, type Lecture } from '../../services/courseService'
 
 export default function CourseDetailPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -20,13 +21,28 @@ export default function CourseDetailPage() {
   const [enrolled, setEnrolled] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const fetchCourseDetails = () => {
     if (!slug) return
     courseService.getCourse(slug)
-      .then((d) => { setCourse(d.course); setSections(d.sections) })
+      .then((d) => {
+        setCourse(d.course)
+        setSections(d.sections)
+        if (token) {
+          courseService.getMyEnrollments()
+            .then((res) => {
+              const isEnrolled = res.enrollments.some((e) => e.course._id === d.course._id)
+              setEnrolled(isEnrolled)
+            })
+            .catch(console.error)
+        }
+      })
       .catch(() => setError('Course not found'))
       .finally(() => setLoading(false))
-  }, [slug])
+  }
+
+  useEffect(() => {
+    fetchCourseDetails()
+  }, [slug, token])
 
   const handleEnroll = async () => {
     if (!token) { navigate('/login'); return }
@@ -42,8 +58,8 @@ export default function CourseDetailPage() {
     }
   }
 
-  const totalLectures = sections.reduce((sum, s) => sum + s.lectures.length, 0)
-  const freeLectures = sections.reduce((sum, s) => sum + s.lectures.filter((l) => l.isFree).length, 0)
+  const totalLectures = sections.reduce((sum: number, s: Section) => sum + s.lectures.length, 0)
+  const freeLectures = sections.reduce((sum: number, s: Section) => sum + s.lectures.filter((l: Lecture) => l.isFree).length, 0)
 
   if (loading) {
     return (
@@ -110,11 +126,11 @@ export default function CourseDetailPage() {
               <section>
                 <h2 className="font-display text-heading text-ink-primary mb-4">Curriculum</h2>
                 <div className="space-y-3">
-                  {sections.map((section) => (
+                  {sections.map((section: Section) => (
                     <Card key={section._id} className="p-4">
                       <h3 className="font-display text-subheading text-ink-primary mb-2">{section.title}</h3>
                       <ul className="space-y-1">
-                        {section.lectures.map((lec) => (
+                        {section.lectures.map((lec: Lecture) => (
                           <li key={lec._id} className="flex items-center gap-2 text-small text-ink-muted">
                             <span>{lec.type === 'video' ? '▶' : lec.type === 'pdf' ? '📄' : '📝'}</span>
                             <span>{lec.title}</span>
@@ -128,6 +144,9 @@ export default function CourseDetailPage() {
                 </div>
               </section>
             )}
+
+            {/* Reviews Section */}
+            <ReviewsSection slug={slug!} enrolled={enrolled} courseId={course._id} />
           </div>
 
           {/* Right: enroll card */}
@@ -154,3 +173,4 @@ export default function CourseDetailPage() {
     </AppShell>
   )
 }
+

@@ -48,6 +48,8 @@ export interface Enrollment {
   progress: number
   isCompleted: boolean
   completedLectures: LectureProgress[]
+  rating?: number | null
+  review?: string | null
 }
 
 export interface DiscussionPost {
@@ -149,6 +151,37 @@ const courseService = {
 
   async deleteDiscussionPost(postId: string): Promise<void> {
     await api.delete(`/discussions/${postId}`)
+  },
+
+  async getCourseReviews(slug: string, page = 1, limit = 10): Promise<{
+    reviews: Array<{
+      id: string
+      student: { _id: string; name: string; avatar?: string }
+      rating: number
+      comment: string
+      createdAt: string
+    }>
+    pagination: { total: number; page: number; limit: number; pages: number }
+  }> {
+    const res = await api.get(`/courses/${slug}/reviews?page=${page}&limit=${limit}`)
+    return res.data.data
+  },
+
+  async getCourseReviewsSummary(slug: string): Promise<{
+    averageRating: number
+    ratingCount: number
+    breakdown: Record<number, number>
+  }> {
+    const res = await api.get(`/courses/${slug}/reviews/summary`)
+    return res.data.data
+  },
+
+  async createCourseReview(slug: string, data: { rating: number; comment: string }): Promise<void> {
+    await api.post(`/courses/${slug}/reviews`, data)
+  },
+
+  async deleteCourseReview(slug: string): Promise<void> {
+    await api.delete(`/courses/${slug}/reviews`)
   },
 
   async aiChat(data: {

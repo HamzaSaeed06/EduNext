@@ -5,6 +5,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg'
   children: ReactNode
   isLoading?: boolean
+  disabled?: boolean
+  className?: string
+  onClick?: (e: any) => void | Promise<void>
+  type?: 'submit' | 'reset' | 'button'
 }
 
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {

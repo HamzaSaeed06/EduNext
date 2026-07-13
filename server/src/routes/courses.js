@@ -6,9 +6,14 @@ const {
   createSection, updateSection, deleteSection,
   createLecture, uploadLectureContent,
   getAdminCourses, reviewCourse,
+  getUploadSignature, confirmUpload,
+  getCourseSectionsEditor,
+  deleteLecture,
+  createCourseReview, getCourseReviews, getCourseReviewsSummary, deleteCourseReview,
 } = require('../controllers/courseController')
 const { enrollCourse, unenrollCourse, getMyEnrollments, updateProgress } = require('../controllers/enrollmentController')
 const { protect, restrict, optionalAuth } = require('../middlewares/auth')
+const { uploadLimiter } = require('../middlewares/rateLimiter')
 const validate = require('../middlewares/validate')
 const {
   createCourseValidator, updateCourseValidator, courseQueryValidator,
@@ -31,10 +36,14 @@ router.patch('/:id/thumbnail', protect, restrict('instructor', 'admin'), uploadT
 router.post('/:id/sections', protect, restrict('instructor', 'admin'), sectionValidator, validate, createSection)
 router.patch('/sections/:id', protect, restrict('instructor', 'admin'), updateSection)
 router.delete('/sections/:id', protect, restrict('instructor', 'admin'), deleteSection)
+router.get('/:id/sections-editor', protect, restrict('instructor', 'admin'), getCourseSectionsEditor)
 
 // ── Lectures ──────────────────────────────────────────────────────
 router.post('/sections/:id/lectures', protect, restrict('instructor', 'admin'), lectureValidator, validate, createLecture)
 router.post('/lectures/:id/upload', protect, restrict('instructor', 'admin'), uploadLectureContent)
+router.post('/lectures/:id/upload-signature', protect, restrict('instructor', 'admin'), uploadLimiter, getUploadSignature)
+router.post('/lectures/:id/confirm-upload', protect, restrict('instructor', 'admin'), confirmUpload)
+router.delete('/lectures/:id', protect, restrict('instructor', 'admin'), deleteLecture)
 
 // ── Enrollment ────────────────────────────────────────────────────
 router.post('/:slug/enroll', protect, restrict('student'), enrollCourse)
@@ -47,5 +56,11 @@ router.patch('/enrollments/:id/progress', protect, updateProgress)
 // ── Admin course approval ─────────────────────────────────────────
 router.get('/admin/all', protect, restrict('admin'), getAdminCourses)
 router.patch('/admin/:id/review', protect, restrict('admin'), reviewCourse)
+
+// ── Course reviews ────────────────────────────────────────────────
+router.get('/:slug/reviews', optionalAuth, getCourseReviews)
+router.get('/:slug/reviews/summary', optionalAuth, getCourseReviewsSummary)
+router.post('/:slug/reviews', protect, restrict('student'), createCourseReview)
+router.delete('/:slug/reviews', protect, restrict('student'), deleteCourseReview)
 
 module.exports = router

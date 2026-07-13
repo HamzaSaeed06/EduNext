@@ -9,6 +9,8 @@ const {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  google,
+  googleCallback,
 } = require('../controllers/authController')
 const { protect } = require('../middlewares/auth')
 const { authLimiter } = require('../middlewares/rateLimiter')
@@ -28,5 +30,9 @@ router.get('/me', protect, getMe)
 router.post('/verify-email', verifyEmail)
 router.post('/forgot-password', authLimiter, forgotPasswordValidator, validate, forgotPassword)
 router.post('/reset-password', authLimiter, resetPasswordValidator, validate, resetPassword)
+
+// Google OAuth routes
+router.get('/google', google)
+router.get('/google/callback', googleCallback)
 
 module.exports = router

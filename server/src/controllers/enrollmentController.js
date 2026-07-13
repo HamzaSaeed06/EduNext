@@ -2,6 +2,7 @@ const Enrollment = require('../models/Enrollment')
 const Course = require('../models/Course')
 const Lecture = require('../models/Lecture')
 const { AppError, asyncHandler } = require('../middlewares/errorHandler')
+const { sendEnrollmentConfirmation } = require('../services/emailService')
 
 // POST /api/v1/courses/:slug/enroll
 const enrollCourse = asyncHandler(async (req, res) => {
@@ -14,6 +15,8 @@ const enrollCourse = asyncHandler(async (req, res) => {
   const enrollment = await Enrollment.create({ student: req.user._id, course: course._id })
   course.enrollmentCount += 1
   await course.save({ validateBeforeSave: false })
+
+  sendEnrollmentConfirmation(req.user, course)
 
   res.status(201).json({ success: true, data: { enrollment }, message: 'Enrolled successfully' })
 })

@@ -24,7 +24,6 @@ const AdminCoursesPage = lazy(() => import('./pages/admin/AdminCoursesPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 
 const CertificatesPage = lazy(() => import('./pages/student/CertificatesPage'))
-const QuizPlayerPage = lazy(() => import('./pages/courses/QuizPlayerPage'))
 const CertificateVerifyPage = lazy(() => import('./pages/CertificateVerifyPage'))
 const InstructorAnalyticsPage = lazy(() => import('./pages/instructor/InstructorAnalyticsPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))

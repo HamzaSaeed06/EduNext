@@ -12,9 +12,16 @@ jest.mock('../src/models/Section')
 jest.mock('../src/models/Lecture')
 jest.mock('../src/models/Enrollment')
 
+jest.mock('../src/services/emailService', () => ({
+  sendEnrollmentConfirmation: jest.fn().mockResolvedValue({ messageId: 'test-enrollment-id' }),
+}))
+const { sendEnrollmentConfirmation } = require('../src/services/emailService')
+
 const User = require('../src/models/User')
 const Course = require('../src/models/Course')
 const Enrollment = require('../src/models/Enrollment')
+const Lecture = require('../src/models/Lecture')
+const Section = require('../src/models/Section')
 const { generateAccessToken } = require('../src/services/tokenService')
 
 // ── Mock helpers ──────────────────────────────────────────────────
@@ -25,7 +32,8 @@ const { generateAccessToken } = require('../src/services/tokenService')
  */
 const simpleChain = (value) => {
   const p = Promise.resolve(value)
-  p.select = jest.fn().mockResolvedValue(value)
+  p.select = jest.fn().mockReturnValue(p)
+  p.populate = jest.fn().mockImplementation(() => Promise.resolve(value))
   return p
 }
 
@@ -164,6 +172,24 @@ describe('Courses — Instructor CRUD', () => {
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
   })
+
+  it('200: instructor can load course sections for editor', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('instructor')))
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc()))
+    Section.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        populate: jest.fn().mockResolvedValue([{ _id: 'section_001', title: 'Sec 1', order: 0, lectures: [] }])
+      })
+    })
+
+    const res = await request(app)
+      .get('/api/v1/courses/course_001/sections-editor')
+      .set('Authorization', `Bearer ${makeToken('instructor')}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(Array.isArray(res.body.data.sections)).toBe(true)
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────
@@ -180,6 +206,7 @@ describe('Courses — Enrollment', () => {
 
     expect(res.status).toBe(201)
     expect(res.body.success).toBe(true)
+    expect(sendEnrollmentConfirmation).toHaveBeenCalled()
   })
 
   it('409: student cannot double-enroll', async () => {
@@ -224,3 +251,184 @@ describe('Courses — Role escalation check', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────
+describe('Lectures — Direct Cloud Video Uploads', () => {
+  const mockLectureDoc = (overrides = {}) => ({
+    _id: 'lecture_001',
+    title: 'Test Lecture',
+    section: {
+      _id: 'section_001',
+      course: {
+        _id: 'course_001',
+        instructor: 'instructor_001',
+      }
+    },
+    type: 'video',
+    contentUrl: null,
+    duration: 0,
+    videoThumbnail: null,
+    uploadStatus: 'pending',
+    save: jest.fn().mockResolvedValue(true),
+    ...overrides,
+  })
+
+  it('200: instructor gets signed upload URL for owned course', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('instructor')))
+    Lecture.findOne.mockReturnValue(simpleChain(mockLectureDoc()))
+
+    const res = await request(app)
+      .post('/api/v1/courses/lectures/lecture_001/upload-signature')
+      .set('Authorization', `Bearer ${makeToken('instructor')}`)
+      .send({ fileSize: 100 * 1024 * 1024, fileType: 'video/mp4' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.signature).toBe('mock_signature')
+  })
+
+  it('400: rejects oversized video uploads', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('instructor')))
+
+    const res = await request(app)
+      .post('/api/v1/courses/lectures/lecture_001/upload-signature')
+      .set('Authorization', `Bearer ${makeToken('instructor')}`)
+      .send({ fileSize: 600 * 1024 * 1024, fileType: 'video/mp4' })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('403: rejects if student requests upload signature', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('student')))
+    Lecture.findOne.mockReturnValue(simpleChain(mockLectureDoc()))
+
+    const res = await request(app)
+      .post('/api/v1/courses/lectures/lecture_001/upload-signature')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+
+    expect(res.status).toBe(403)
+  })
+
+  it('200: instructor confirms direct cloud upload successfully', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('instructor')))
+    const lecture = mockLectureDoc()
+    Lecture.findOne.mockReturnValue(simpleChain(lecture))
+
+    const res = await request(app)
+      .post('/api/v1/courses/lectures/lecture_001/confirm-upload')
+      .set('Authorization', `Bearer ${makeToken('instructor')}`)
+      .send({ url: 'https://cloudinary.com/some-video', duration: 120 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(lecture.save).toHaveBeenCalled()
+    expect(lecture.uploadStatus).toBe('success')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────
+describe('Courses — Reviews', () => {
+  it('201: enrolled student can create a review', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('student')))
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc({ status: 'published' })))
+    
+    const mockEnrollment = {
+      _id: 'enroll_001',
+      student: 'student_001',
+      course: 'course_001',
+      rating: null,
+      review: null,
+      save: jest.fn().mockResolvedValue(true)
+    }
+    Enrollment.findOne.mockResolvedValue(mockEnrollment)
+    Enrollment.find.mockResolvedValue([{ rating: 4 }, { rating: 5 }])
+
+    const res = await request(app)
+      .post('/api/v1/courses/test-course/reviews')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+      .send({ rating: 5, comment: 'Great!' })
+
+    expect(res.status).toBe(201)
+    expect(res.body.success).toBe(true)
+    expect(mockEnrollment.rating).toBe(5)
+    expect(mockEnrollment.review).toBe('Great!')
+    expect(mockEnrollment.save).toHaveBeenCalled()
+  })
+
+  it('403: non-enrolled student cannot leave a review', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('student')))
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc({ status: 'published' })))
+    Enrollment.findOne.mockResolvedValue(null)
+
+    const res = await request(app)
+      .post('/api/v1/courses/test-course/reviews')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+      .send({ rating: 4, comment: 'Nice' })
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('FORBIDDEN')
+  })
+
+  it('200: can get reviews list', async () => {
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc({ status: 'published' })))
+    
+    // mock query chain for Enrollment.find().sort().skip().limit().populate()
+    const mockQuery = {
+      sort: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      populate: jest.fn().mockResolvedValue([
+        { _id: 'enroll_001', rating: 4, review: 'Good', student: { name: 'Alice' }, createdAt: new Date() }
+      ])
+    }
+    Enrollment.find.mockReturnValue(mockQuery)
+    Enrollment.countDocuments.mockResolvedValue(1)
+
+    const res = await request(app).get('/api/v1/courses/test-course/reviews?page=1&limit=10')
+    
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.reviews).toHaveLength(1)
+  })
+
+  it('200: can get reviews summary breakdown', async () => {
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc({ status: 'published', averageRating: 4.67, ratingCount: 3 })))
+    Enrollment.find.mockResolvedValue([
+      { rating: 5 }, { rating: 5 }, { rating: 4 }
+    ])
+
+    const res = await request(app).get('/api/v1/courses/test-course/reviews/summary')
+    
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.averageRating).toBeCloseTo(4.67, 1)
+    expect(res.body.data.ratingCount).toBe(3)
+  })
+
+  it('200: enrolled student can delete owner review', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUserDoc('student')))
+    Course.findOne.mockReturnValue(simpleChain(mockCourseDoc({ status: 'published' })))
+    
+    const mockEnrollment = {
+      _id: 'enroll_001',
+      rating: 5,
+      review: 'Awesome',
+      save: jest.fn().mockResolvedValue(true)
+    }
+    Enrollment.findOne.mockResolvedValue(mockEnrollment)
+    Enrollment.find.mockResolvedValue([])
+
+    const res = await request(app)
+      .delete('/api/v1/courses/test-course/reviews')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(mockEnrollment.rating).toBeNull()
+    expect(mockEnrollment.review).toBeNull()
+    expect(mockEnrollment.save).toHaveBeenCalled()
+  })
+})
+
+

@@ -1,3 +1,14 @@
+// Force Google DNS for SRV record resolution (router DNS blocks mongodb+srv:// lookups)
+const dns = require('dns')
+if (process.env.NODE_ENV !== 'production') {
+  dns.setDefaultResultOrder('ipv4first')
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1'])
+  } catch (err) {
+    console.warn('Unable to set custom DNS servers:', err.message)
+  }
+}
+
 require('dotenv').config()
 const http = require('http')
 const express = require('express')

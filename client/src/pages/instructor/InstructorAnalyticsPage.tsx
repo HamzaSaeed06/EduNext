@@ -4,13 +4,6 @@ import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
 import courseService, { type Course } from '../../services/courseService'
 
-interface CourseStats {
-  course: Course
-  enrollments: number
-  completions: number
-  avgProgress: number
-}
-
 export default function InstructorAnalyticsPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,7 +11,7 @@ export default function InstructorAnalyticsPage() {
   useEffect(() => {
     courseService.getInstructorCourses()
       .then((d) => setCourses(d.courses))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false))
   }, [])
 

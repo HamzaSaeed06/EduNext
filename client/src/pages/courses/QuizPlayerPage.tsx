@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Button from '../../components/ui/Button'
-import Card from '../../components/ui/Card'
 import api from '../../services/api'
 
 interface Question {
@@ -105,11 +104,10 @@ export default function QuizPlayer({ quizId, onComplete, onClose }: Props) {
               <button
                 key={opt._id}
                 onClick={() => selectAnswer(q._id, opt._id)}
-                className={`w-full text-left px-4 py-3 rounded-btn border transition-colors text-small ${
-                  answers[q._id] === opt._id
+                className={`w-full text-left px-4 py-3 rounded-btn border transition-colors text-small ${answers[q._id] === opt._id
                     ? 'border-trail-green bg-trail-green/5 text-trail-green'
                     : 'border-border-color hover:border-trail-green hover:text-trail-green text-ink-primary'
-                }`}
+                  }`}
               >
                 {opt.text}
               </button>

@@ -3,6 +3,7 @@ import { HTMLAttributes, ReactNode } from 'react'
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
   hover?: boolean
+  className?: string
 }
 
 export default function Card({ children, hover = false, className = '', ...props }: CardProps) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import axios from 'axios'
 import AppShell from '../../components/layout/AppShell'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
@@ -21,6 +22,12 @@ export default function CourseEditorPage() {
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState<'info' | 'curriculum'>('info')
 
+  // Curriculum building state
+  const [activeAddLectureSection, setActiveAddLectureSection] = useState<string | null>(null)
+  const [newLectureForm, setNewLectureForm] = useState({ title: '', type: 'video' })
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
+  const [dragOver, setDragOver] = useState<Record<string, boolean>>({})
+
   useEffect(() => {
     if (!id) return
     // Load instructor's courses and find this one
@@ -33,7 +40,9 @@ export default function CourseEditorPage() {
       .finally(() => setLoading(false))
 
     // Load sections
-    api.get(`/courses/${id}/sections-editor`).catch(() => {})
+    api.get(`/courses/${id}/sections-editor`)
+      .then((res) => setSections(res.data.data.sections))
+      .catch(() => { })
   }, [id, navigate])
 
   const handleSave = async () => {
@@ -41,7 +50,7 @@ export default function CourseEditorPage() {
     setSaving(true)
     setError('')
     try {
-      const { course: updated } = await courseService.updateCourse(id, form)
+      const { course: updated } = await courseService.updateCourse(id, { ...form, level: form.level as Course['level'] })
       setCourse(updated)
       setSuccess('Changes saved')
       setTimeout(() => setSuccess(''), 2000)
@@ -52,6 +61,14 @@ export default function CourseEditorPage() {
     }
   }
 
+  const reloadSections = async () => {
+    if (!id) return
+    try {
+      const res = await api.get(`/courses/${id}/sections-editor`)
+      setSections(res.data.data.sections)
+    } catch { }
+  }
+
   const handleAddSection = async () => {
     if (!newSectionTitle.trim() || !id) return
     try {
@@ -60,6 +77,120 @@ export default function CourseEditorPage() {
       setNewSectionTitle('')
     } catch {
       setError('Failed to add section')
+    }
+  }
+
+  const handleDeleteSection = async (sectionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this section? All its lectures will be orphaned.')) return
+    try {
+      await api.delete(`/courses/sections/${sectionId}`)
+      setSections((prev) => prev.filter((s) => s._id !== sectionId))
+      setSuccess('Section deleted')
+      setTimeout(() => setSuccess(''), 2000)
+    } catch {
+      setError('Failed to delete section')
+    }
+  }
+
+  const handleCreateLecture = async (sectionId: string) => {
+    if (!newLectureForm.title.trim()) return
+    try {
+      const section = sections.find((s) => s._id === sectionId)
+      const order = section ? section.lectures.length : 0
+      await api.post(`/courses/sections/${sectionId}/lectures`, {
+        title: newLectureForm.title,
+        type: newLectureForm.type,
+        order,
+      })
+      await reloadSections()
+      setActiveAddLectureSection(null)
+      setNewLectureForm({ title: '', type: 'video' })
+      setSuccess('Lecture created')
+      setTimeout(() => setSuccess(''), 2000)
+    } catch {
+      setError('Failed to create lecture')
+    }
+  }
+
+  const handleDeleteLecture = async (lectureId: string) => {
+    if (!window.confirm('Are you sure you want to delete this lecture?')) return
+    try {
+      await api.delete(`/courses/lectures/${lectureId}`)
+      await reloadSections()
+      setSuccess('Lecture deleted')
+      setTimeout(() => setSuccess(''), 2000)
+    } catch {
+      setError('Failed to delete lecture')
+    }
+  }
+
+  const handleVideoUpload = async (lectureId: string, file: File) => {
+    const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
+    const MAX_VIDEO_BYTES = 500 * 1024 * 1024  // 500 MB
+
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      setError('Invalid file type. Only MP4, WebM, and QuickTime videos are allowed.')
+      return
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      setError('File size exceeds the 500MB limit.')
+      return
+    }
+
+    setError('')
+    try {
+      // Get signed upload URL parameters from backend
+      const sigRes = await api.post(`/courses/lectures/${lectureId}/upload-signature`, {
+        fileSize: file.size,
+        fileType: file.type,
+      })
+      const { signature, timestamp, apiKey, cloudName, folder } = sigRes.data.data
+
+      setUploadProgress((prev) => ({ ...prev, [lectureId]: 5 }))
+
+      if (signature === 'mock_signature') {
+        // Run mock upload sequence for tests/stub env
+        for (let p = 10; p <= 100; p += 10) {
+          await new Promise((r) => setTimeout(r, 150))
+          setUploadProgress((prev) => ({ ...prev, [lectureId]: p }))
+        }
+        await api.post(`/courses/lectures/${lectureId}/confirm-upload`, {
+          url: `https://placeholder.edunext.dev/edunext/video/${Date.now()}.mp4`,
+          duration: 180,
+        })
+      } else {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('api_key', apiKey)
+        fd.append('timestamp', String(timestamp))
+        fd.append('signature', signature)
+        fd.append('folder', folder)
+
+        const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, fd, {
+          onUploadProgress: (e) => {
+            const tot = e.total || file.size
+            const pct = Math.round((e.loaded * 100) / tot)
+            setUploadProgress((prev) => ({ ...prev, [lectureId]: pct }))
+          },
+        })
+
+        await api.post(`/courses/lectures/${lectureId}/confirm-upload`, {
+          url: uploadRes.data.secure_url,
+          duration: Math.round(uploadRes.data.duration || 0),
+        })
+      }
+
+      setSuccess('Video uploaded successfully!')
+      setTimeout(() => setSuccess(''), 2000)
+      await reloadSections()
+    } catch (err) {
+      setError('Video upload failed. Please try again.')
+    } finally {
+      setUploadProgress((prev) => {
+        const next = { ...prev }
+        delete next[lectureId]
+        return next
+      })
     }
   }
 
@@ -97,11 +228,10 @@ export default function CourseEditorPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-display text-display-l text-ink-primary">{course.title}</h1>
-            <span className={`text-micro font-mono px-2 py-0.5 rounded-pill mt-1 inline-block ${
-              course.status === 'published' ? 'bg-trail-green/10 text-trail-green' :
+            <span className={`text-micro font-mono px-2 py-0.5 rounded-pill mt-1 inline-block ${course.status === 'published' ? 'bg-trail-green/10 text-trail-green' :
               course.status === 'pending_review' ? 'bg-trail-amber/10 text-trail-amber' :
-              'bg-bg-surface-alt text-ink-muted'
-            }`}>
+                'bg-bg-surface-alt text-ink-muted'
+              }`}>
               {course.status.replace('_', ' ')}
             </span>
           </div>
@@ -119,11 +249,10 @@ export default function CourseEditorPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-small font-medium capitalize transition-colors border-b-2 -mb-px ${
-                activeTab === tab
-                  ? 'border-trail-green text-trail-green'
-                  : 'border-transparent text-ink-muted hover:text-ink-primary'
-              }`}
+              className={`px-4 py-2 text-small font-medium capitalize transition-colors border-b-2 -mb-px ${activeTab === tab
+                ? 'border-trail-green text-trail-green'
+                : 'border-transparent text-ink-muted hover:text-ink-primary'
+                }`}
             >
               {tab}
             </button>
@@ -172,20 +301,126 @@ export default function CourseEditorPage() {
               </Card>
             )}
             {sections.map((s) => (
-              <Card key={s._id} className="p-4">
-                <h3 className="font-display text-heading text-ink-primary mb-2">{s.title}</h3>
-                {s.lectures.length === 0 ? (
-                  <p className="text-small text-ink-muted">No lectures yet</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {s.lectures.map((l) => (
-                      <li key={l._id} className="text-small text-ink-muted flex items-center gap-2">
-                        <span>{l.type === 'video' ? '▶' : '📄'}</span>
-                        <span>{l.title}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              <Card key={s._id} className="p-5 border border-border-color bg-bg-surface space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-heading-m text-ink-primary font-semibold">{s.title}</h3>
+                  <Button size="sm" variant="ghost" onClick={() => handleDeleteSection(s._id)} className="text-error-clay">
+                    Delete Section
+                  </Button>
+                </div>
+
+                <div className="space-y-3 pl-4 border-l-2 border-border-color">
+                  {s.lectures.length === 0 ? (
+                    <p className="text-small text-ink-muted py-2">No lectures in this section yet.</p>
+                  ) : (
+                    s.lectures.map((l) => (
+                      <div key={l._id} className="p-4 rounded-card border border-border bg-bg-surface-alt space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-ink-muted">
+                              {l.type === 'video' ? '▶' : '📄'}
+                            </span>
+                            <span className="font-medium text-ink-primary">{l.title}</span>
+                            <span className="text-micro bg-bg-surface border px-1.5 py-0.5 rounded text-ink-muted uppercase">
+                              {l.type}
+                            </span>
+                          </div>
+                          <Button size="sm" variant="ghost" onClick={() => handleDeleteLecture(l._id)} className="text-error-clay">
+                            Delete
+                          </Button>
+                        </div>
+
+                        {l.type === 'video' && (
+                          <div className="mt-2 space-y-3">
+                            {l.contentUrl ? (
+                              <div className="rounded-card overflow-hidden bg-black aspect-video max-w-md border border-border">
+                                <video src={l.contentUrl} controls className="w-full h-full" />
+                              </div>
+                            ) : uploadProgress[l._id] !== undefined ? (
+                              <div className="space-y-2 max-w-md bg-bg-surface p-4 rounded border">
+                                <div className="flex justify-between text-small text-ink-primary font-medium">
+                                  <span>Uploading video...</span>
+                                  <span>{uploadProgress[l._id]}%</span>
+                                </div>
+                                <div className="w-full bg-border rounded-full h-2">
+                                  <div
+                                    className="bg-trail-green h-2 rounded-full transition-all duration-150"
+                                    style={{ width: `${uploadProgress[l._id]}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                onDragOver={(e) => { e.preventDefault(); setDragOver((prev) => ({ ...prev, [l._id]: true })) }}
+                                onDragLeave={() => setDragOver((prev) => ({ ...prev, [l._id]: false }))}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  setDragOver((prev) => ({ ...prev, [l._id]: false }))
+                                  const file = e.dataTransfer.files?.[0]
+                                  if (file) handleVideoUpload(l._id, file)
+                                }}
+                                className={`border-2 border-dashed rounded-btn p-6 text-center cursor-pointer transition-colors max-w-md ${dragOver[l._id]
+                                  ? 'border-trail-green bg-trail-green/5'
+                                  : 'border-border-color bg-bg-surface hover:border-trail-green hover:bg-bg-surface-alt'
+                                  }`}
+                              >
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleVideoUpload(l._id, file) }}
+                                  className="hidden"
+                                  id={`file-${l._id}`}
+                                />
+                                <label htmlFor={`file-${l._id}`} className="cursor-pointer space-y-2 block">
+                                  <div className="text-display-s text-ink-muted">📤</div>
+                                  <div className="text-small font-medium text-ink-primary">
+                                    Drag video file here or <span className="text-trail-green underline">browse</span>
+                                  </div>
+                                  <div className="text-micro text-ink-muted">MP4, WebM or QuickTime up to 500MB</div>
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+
+                  {/* Add Lecture section */}
+                  <div className="pt-2">
+                    {activeAddLectureSection === s._id ? (
+                      <div className="bg-bg-surface-alt p-4 rounded-btn border border-border space-y-3 max-w-md">
+                        <h4 className="text-small font-semibold text-ink-primary">Create New Lecture</h4>
+                        <Input
+                          label="Lecture Title"
+                          placeholder="Introduction to..."
+                          value={newLectureForm.title}
+                          onChange={(e) => setNewLectureForm((f) => ({ ...f, title: e.target.value }))}
+                        />
+                        <div>
+                          <label className="text-small font-medium text-ink-primary mb-1 block">Lecture Type</label>
+                          <select
+                            value={newLectureForm.type}
+                            onChange={(e) => setNewLectureForm((f) => ({ ...f, type: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-btn border border-border bg-bg-surface text-small text-ink-primary focus:outline-none"
+                          >
+                            <option value="video">Video Lecture</option>
+                            <option value="pdf">PDF Resource</option>
+                            <option value="text">Text Document</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleCreateLecture(s._id)}>Create</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setActiveAddLectureSection(null)}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="secondary" onClick={() => { setActiveAddLectureSection(s._id); setNewLectureForm({ title: '', type: 'video' }) }}>
+                        + Add Lecture
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </Card>
             ))}
             <Card className="p-4">
@@ -206,3 +441,4 @@ export default function CourseEditorPage() {
     </AppShell>
   )
 }
+

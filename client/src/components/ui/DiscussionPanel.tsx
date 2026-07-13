@@ -13,13 +13,11 @@ interface Props {
 
 function PostItem({
   post,
-  courseId,
   onDelete,
   onReply,
   userId,
 }: {
   post: DiscussionPost
-  courseId: string
   onDelete: (id: string) => void
   onReply: (parentId: string, content: string) => Promise<void>
   userId?: string
@@ -249,7 +247,6 @@ export default function DiscussionPanel({ courseId, lectureId }: Props) {
             <PostItem
               key={post._id}
               post={post}
-              courseId={courseId}
               onDelete={handleDelete}
               onReply={handleReply}
               userId={user?._id}

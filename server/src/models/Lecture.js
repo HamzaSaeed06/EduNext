@@ -31,6 +31,15 @@ const lectureSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    videoThumbnail: {
+      type: String,
+      default: null,
+    },
+    uploadStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'success', 'failed'],
+      default: 'pending',
+    },
     order: {
       type: Number,
       required: true,
