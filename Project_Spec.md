@@ -190,6 +190,200 @@ edunext/
 
 ---
 
+# 🧩 FEATURE_SPEC_BATCH1.md — Detailed Spec for 5 Features
+
+> This file gives implementation-level detail for 5 specific features referenced from `PROJECT_SPEC.md`. Use alongside `AGENT_RULES.md` (conventions) and `DESIGN_SYSTEM.md` (UI). Current status is noted per feature — agent must verify actual code state, not just trust the status label below (labels may be stale).
+
+---
+
+## 1. Google OAuth (One-Click Login)
+
+**Status:** Not yet started (unless codebase says otherwise — verify)
+**Goal:** Student/instructor can sign up or log in with a single click via Google, no separate password needed for that account.
+
+### Requirements
+- "Continue with Google" button on both Login and Register screens
+- Uses OAuth 2.0 Authorization Code flow (via `passport-google-oauth20` or equivalent)
+- On first login via Google: auto-create a User record (role defaults to `student`, upgradeable later)
+- If an account with that email already exists (created via normal signup), link the Google account to it instead of creating a duplicate — match by verified email
+- Store Google `sub` (unique ID) on the User model to avoid future duplicate-account issues
+- Issue the same JWT access + refresh token pair as normal login (Google login is just an alternate entry point into the same auth system, per `AGENT_RULES.md`)
+
+### Data Model Addition (User)
+```
+googleId: { type: String, unique: true, sparse: true }
+authProvider: { type: String, enum: ['local', 'google'], default: 'local' }
+```
+
+### API
+- `GET /api/v1/auth/google` — redirects to Google consent screen
+- `GET /api/v1/auth/google/callback` — handles callback, creates/links user, issues tokens, redirects to frontend with tokens (or sets httpOnly cookie + redirects to dashboard)
+
+### Security Notes
+- Verify the Google ID token signature server-side — never trust client-supplied profile data directly
+- Only accept verified Google emails (`email_verified: true` from Google's response)
+- Google client secret lives only in `.env`, never in frontend code
+
+### Frontend
+- Button follows `DESIGN_SYSTEM.md` button component — Google's own logo/branding guidelines apply to the icon, but button shape/spacing matches the rest of the form
+- Loading state while redirect/callback resolves
+
+### Tests
+- New user via Google creates exactly one User record
+- Existing local-auth user logging in via Google links accounts, doesn't duplicate
+- Invalid/tampered token from callback is rejected
+
+---
+
+## 2. PDF Certificates (Real Downloadable Certificate)
+
+**Status:** Not yet started (unless codebase says otherwise — verify)
+**Goal:** On 100% course completion, student can download an actual PDF certificate — not a placeholder image or static template with no real data.
+
+### Requirements
+- Trigger: when a student's course progress hits 100% (all lectures + passing quiz scores where applicable), generate a certificate record
+- Certificate contains: student name, course title, instructor name, completion date, unique certificate ID (verifiable), and the trail/flag icon per `DESIGN_SYSTEM.md` Section 5
+- Certificate is generated as an actual PDF file (not HTML-to-image screenshot hack) — use a proper PDF library (e.g. `pdfkit` or `puppeteer` server-side rendering from an HTML template)
+- Stored in Cloudinary/S3, with the URL saved on the Certificate model — don't regenerate on every download request, generate once and cache
+- Public verification page: `/verify/:certificateId` — anyone with the link can confirm a certificate is genuine (shows student name + course + date, not private info)
+
+### Data Model (Certificate)
+```
+studentId, courseId, certificateId (unique, e.g. nanoid),
+issuedAt, pdfUrl, verified: true
+```
+
+### API
+- `POST /api/v1/certificates/generate` (internal, triggered on completion — not directly user-callable to prevent forging)
+- `GET /api/v1/certificates/:certificateId` — fetch certificate metadata
+- `GET /api/v1/certificates/:certificateId/download` — serves/redirects to the PDF
+- `GET /api/v1/certificates/verify/:certificateId` — public verification endpoint
+
+### Frontend
+- "Download Certificate" button appears only when course is 100% complete
+- Certificate preview shown in-app before download (styled per `DESIGN_SYSTEM.md`)
+- Public verification page is a simple, clean, unauthenticated page
+
+### Tests
+- Certificate only generates at true 100% completion (not 99%, not manually forced via API)
+- Certificate ID is unique and not guessable/sequential (use nanoid/UUID, not incrementing integers)
+- Verification endpoint returns correct data for valid ID, 404 for invalid
+
+---
+
+## 3. Video Upload (Instructor Content Upload)
+
+**Status:** Not yet started (unless codebase says otherwise — verify)
+**Goal:** Instructors can upload their own video lectures directly through the platform, with proper validation and processing — not just paste a YouTube link (this is direct file upload).
+
+### Requirements
+- Instructor selects a video file when creating/editing a lecture
+- Client-side pre-check: file type (mp4, mov, webm) and size limit (e.g. 500MB — confirm limit with product owner) before upload starts, to avoid wasted upload time on invalid files
+- Server-side: re-validate MIME type and size regardless of client check (never trust client-side validation alone, per `AGENT_RULES.md` Section 6)
+- Upload directly to Cloudinary/S3 (signed upload URL pattern — server generates a signed upload signature, client uploads directly to storage, doesn't proxy the whole file through the Express server)
+- Show upload progress bar to the instructor
+- After upload completes, store the resulting video URL + duration + thumbnail (auto-generated by Cloudinary) on the Lecture model
+- Video should be served via adaptive streaming (HLS) where the storage provider supports it, not just a raw MP4 link, for better playback on slow connections
+
+### Data Model Addition (Lecture)
+```
+videoUrl, videoDuration, videoThumbnail, uploadStatus: enum['pending','processing','ready','failed']
+```
+
+### API
+- `POST /api/v1/lectures/:id/upload-signature` — returns a signed upload URL/signature for direct-to-storage upload
+- `POST /api/v1/lectures/:id/confirm-upload` — called after client-side upload succeeds, to save the final URL/metadata
+- Webhook endpoint (if using Cloudinary's async processing) to update `uploadStatus` when processing finishes
+
+### Security Notes
+- Signed upload URLs expire quickly (e.g. 15 minutes) and are scoped to the specific instructor's lecture — can't be reused to upload arbitrary content elsewhere
+- Only the owning instructor (or admin) can initiate an upload for a given lecture — enforce via auth middleware
+- Rate-limit upload-signature requests to prevent abuse
+
+### Frontend
+- Drag-and-drop upload zone (styled per `DESIGN_SYSTEM.md`)
+- Progress bar during upload, clear error messages on failure (file too large, wrong format — use plain-language errors per `DESIGN_SYSTEM.md` Section 7)
+- Preview player once upload + processing is complete
+
+### Tests
+- Oversized file rejected both client-side and server-side
+- Wrong file type rejected
+- Only the lecture's owning instructor can request an upload signature for it
+- Expired signature is rejected by storage provider
+
+---
+
+## 4. Email Notifications (Welcome + Enrollment Confirmation)
+
+**Status:** Not yet started (unless codebase says otherwise — verify)
+**Goal:** Automated transactional emails for key user moments, starting with these two:
+
+### 4.1 Welcome Email
+- Trigger: successful registration (both local signup and Google OAuth first-time signup)
+- Content: greet by name, brief platform intro, link to browse courses, no unnecessary marketing fluff
+- Send asynchronously (don't block the registration API response waiting on email send — queue it)
+
+### 4.2 Enrollment Confirmation Email
+- Trigger: student successfully enrolls in a course
+- Content: course title, instructor name, direct link to start the course, what to expect (number of lectures, estimated duration)
+
+### Requirements (both)
+- Use a transactional email service (e.g. Resend, SendGrid, or Nodemailer + SMTP provider) — never a personal SMTP account in production
+- HTML email templates should be simple, mobile-friendly, and reflect brand tone from `DESIGN_SYSTEM.md` Section 7 (plain language, clear single CTA button)
+- Emails sent via a queue/job (e.g. BullMQ or a simple async service call) so email provider downtime doesn't affect core app response times
+- Log email send success/failure (not full email content) for debugging
+- Include unsubscribe/preference link even for transactional-adjacent emails as good practice (can be a simple "manage notification preferences" link)
+
+### Data Model Addition (optional, for tracking)
+```
+EmailLog: { userId, type: enum['welcome','enrollment', ...], sentAt, status: enum['sent','failed'] }
+```
+
+### API
+- Internal service function, not a public route: `services/emailService.js` → `sendWelcomeEmail(user)`, `sendEnrollmentConfirmation(user, course)`
+- Called from the relevant controller (registration controller, enrollment controller) — fire-and-forget via queue, don't await synchronously in the request/response cycle
+
+### Tests
+- Registration triggers exactly one welcome email job queued
+- Enrollment triggers exactly one enrollment email job queued
+- Email service failure doesn't crash or fail the registration/enrollment API call itself (core action succeeds even if email fails)
+
+---
+
+## 5. Course Reviews UI (Backend Ready, Frontend Pending)
+
+**Status:** Backend complete — frontend not yet built. **Agent must verify this by inspecting the actual API routes/controllers before assuming they exist.**
+
+**Goal:** Build the frontend for a review system whose backend already exists. Do not rebuild the backend — confirm its actual contract first (check routes file / run existing endpoint) rather than assuming the shape described below; treat this section as a best-guess reference to verify against, not a rebuild spec.
+
+### Verification Step (do this first)
+1. Locate the reviews-related routes/controllers/model in the existing codebase.
+2. Confirm the actual request/response shape by reading the code (and/or hitting the endpoint) rather than assuming the shape below.
+3. If the actual API differs from what's assumed here, build the frontend against the real contract and update this file to match reality.
+
+### Assumed API Contract (verify against real code)
+- `POST /api/v1/courses/:courseId/reviews` — create a review `{ rating: 1-5, comment: string }` (student must be enrolled to submit)
+- `GET /api/v1/courses/:courseId/reviews` — paginated list of reviews for a course
+- `GET /api/v1/courses/:courseId/reviews/summary` — average rating + count breakdown by star
+
+### Frontend Requirements
+- **Course detail page:** average rating (stars) + total review count shown near the course title
+- **Reviews section:** paginated list of reviews (student name/avatar, star rating, comment, date)
+- **Review submission form:** shown only to enrolled students who haven't already reviewed that course; star selector + comment textarea
+- **Edit/delete own review:** a student can edit or remove their own review (confirm this exists in the backend; if not, flag it as a gap rather than silently building UI for a non-existent endpoint)
+- Empty state when no reviews yet: inviting copy per `DESIGN_SYSTEM.md` Section 7 (e.g. *"No reviews yet — be the first to share your experience."*)
+- Uses `DESIGN_SYSTEM.md` card styling; star rating color uses `--trail-amber`, not an arbitrary yellow
+
+### Tests
+- Review form only renders for enrolled students
+- Submitting a review updates the average rating display without a full page reload
+- Attempting to submit a second review (if backend disallows it) shows a clear error, not a silent failure
+
+---
+
+
+```
+
 ## 8. Agent Instructions — How to Work On This Project
 
 > Any agent picking up this project must follow this workflow:
