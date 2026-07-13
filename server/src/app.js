@@ -81,10 +81,10 @@ app.all('*', (req, res) => {
 
 app.use(errorHandler)
 
-const PORT = parseInt(process.env.PORT || '5001', 10)
+const PORT = parseInt(process.env.PORT || '3000', 10)
 
 const startServer = () => {
-  app.listen(PORT, 'localhost', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     logger.info(`EduNext server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`)
     if (process.env.NODE_ENV !== 'test') {
       connectDB().catch((err) => {
