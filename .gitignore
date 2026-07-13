@@ -19,3 +19,6 @@ tsc_errors.txt
 test_output.txt
 test_output_cmd.txt
 *.log.txt
+
+# Replit runtime cache (not part of project source)
+.cache/
