@@ -9,9 +9,15 @@ description: Key architectural decisions, port config, AI provider, test pattern
 - Vite proxies `/api` → `http://localhost:3000`
 
 ## AI provider
-- Uses OpenAI (`gpt-4o-mini`), NOT Anthropic Claude as the spec originally said.
+- Uses Google Gemini (`gemini-2.0-flash` via `@google/generative-ai`), NOT OpenAI or Anthropic Claude as earlier revisions used.
 - All AI calls are isolated in `server/src/services/aiService.js` — swap provider there only.
-- Gracefully stubs all AI responses when `OPENAI_API_KEY` is not set.
+- Gracefully stubs all AI responses when `GEMINI_API_KEY` is not set.
+- Gemini has no "system" role for chat turns — system instructions get folded into the adjacent user turn.
+
+## Database — no native Replit integration
+- This is a MERN app (Mongoose/MongoDB), not Replit's built-in Postgres. Replit has no MongoDB connector/integration.
+- `MONGODB_URI` must be requested from the user as a secret (e.g. a MongoDB Atlas connection string) — there's no way to provision it in-platform.
+- `server/src/config/db.js` connects at startup but doesn't crash the process if it fails (`startServer` catches the error and logs a warning) — the server stays up and serves 200s even with no DB, which can mask a missing/wrong `MONGODB_URI`. Check for "MongoDB connected" in logs or try a real DB-touching request (e.g. register) to confirm it's actually connected.
 
 ## Test patterns
 - All server tests mock Mongoose models (no real MongoDB).
