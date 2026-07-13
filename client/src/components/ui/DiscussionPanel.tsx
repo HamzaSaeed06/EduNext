@@ -175,23 +175,38 @@ function PostItem({
               </div>
             )}
 
-            {/* Reply toggle — always visible */}
-            <button
-              onClick={() => setReplyOpen((o) => !o)}
-              className="text-micro text-ink-muted hover:text-trail-green mt-3 transition-colors inline-flex items-center gap-1"
-            >
-              {replyOpen ? (
-                <>
-                  <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                  Cancel
-                </>
-              ) : (
-                <>
-                  <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                  Reply{post.replies?.length ? ` (${post.replies.length})` : ''}
-                </>
+            {/* Reply toggle — always visible on every post */}
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                onClick={() => setReplyOpen((o) => !o)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-micro font-medium border transition-all duration-150 ${
+                  replyOpen
+                    ? 'bg-trail-green/10 border-trail-green/30 text-trail-green'
+                    : 'bg-bg-surface-alt border-border-color text-ink-muted hover:border-trail-green hover:text-trail-green hover:bg-trail-green/5'
+                }`}
+              >
+                {replyOpen ? (
+                  <>
+                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Reply
+                  </>
+                )}
+              </button>
+              {post.replies?.length > 0 && (
+                <span className="text-micro text-ink-muted">
+                  {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
+                </span>
               )}
-            </button>
+            </div>
 
             {/* Reply form */}
             <AnimatePresence>

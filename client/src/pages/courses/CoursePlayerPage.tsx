@@ -138,7 +138,12 @@ export default function CoursePlayerPage() {
                 <span className="text-ink-muted">Progress</span>
                 <span className="text-trail-green font-mono text-micro">{progress}%</span>
               </div>
-              <TrailProgress progress={progress} size="mini" />
+              <TrailProgress
+                progress={progress}
+                size="mini"
+                completedCount={completedIds.size}
+                totalCount={sections.reduce((n, s) => n + s.lectures.length, 0)}
+              />
             </div>
           </div>
           <div className="overflow-y-auto" style={{ height: 'calc(100vh - 132px)' }}>
