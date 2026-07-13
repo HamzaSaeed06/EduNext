@@ -4,3 +4,60 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend"
+
+[[workflows.workflow]]
+name = "Backend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd server && npm run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Frontend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd client && npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[userenv]
+
+[userenv.shared]
+CORS_ORIGIN = "http://localhost:5000"
+JWT_ACCESS_EXPIRES = "15m"
+JWT_ACCESS_SECRET = "15d55524393aadb0341fa96852085ce1d78d3281fe08cf0dd70e7bcb84fb8521913e3daef644c68ff16029d97aa08c72"
+JWT_REFRESH_EXPIRES = "7d"
+JWT_REFRESH_SECRET = "5a04b0a3dd35f3ac516b74a1647365719dd47f6985a3aeaa2e993d50348b81dff8a86c6003886e0e3ab31aff1668319c"

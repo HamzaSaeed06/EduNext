@@ -62,6 +62,13 @@
 
 ---
 
+## 2026-07-13 — AI provider switched from OpenAI to Google Gemini
+
+**Decision:** `server/src/services/aiService.js` now uses `@google/generative-ai` (`gemini-2.0-flash`) instead of OpenAI. The `openai` package was removed. Gemini has no dedicated "system" role for chat turns, so system instructions are folded into the first/last user turn as a preamble. All four AI features (course summaries, quiz generation, recommendations, AI Tutor chat) keep the same function signatures and stub-fallback behavior — only the provider swapped.
+**Reason:** User has a Gemini API key and asked to use it instead of OpenAI when getting the imported project running.
+
+---
+
 ## 2026-07-13 — Frontend test suite established (Vitest + React Testing Library)
 
 **Decision:** Added `vitest`, `@vitest/ui`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` as devDependencies, with `client/vitest.config.ts` + `src/setupTests.ts`, and `npm test` → `vitest run`. Wrote baseline tests for video upload validation (`utils/videoUpload.test.ts`, plus extracted the validation logic itself into `utils/videoUpload.ts` so it's unit-testable outside the drag-and-drop component), the certificate download button, the review submission form, and the Google login button.

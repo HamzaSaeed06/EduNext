@@ -1,30 +1,55 @@
 const logger = require('../config/logger')
 
 /**
- * AI service — uses OpenAI when configured, otherwise returns graceful stubs.
- * All callers receive the same shape regardless of whether the API key is set.
- * Configure OPENAI_API_KEY in your environment to enable real AI responses.
+ * AI service — uses Google Gemini when configured, otherwise returns
+ * graceful stubs. All callers receive the same shape regardless of whether
+ * the API key is set. Configure GEMINI_API_KEY in your environment to
+ * enable real AI responses.
+ *
+ * (Legacy note: an earlier revision used OpenAI. Gemini is now the
+ * supported provider — see DECISIONS.md.)
  */
 
-const hasOpenAI = Boolean(process.env.OPENAI_API_KEY)
+const hasGemini = Boolean(process.env.GEMINI_API_KEY)
+const GEMINI_MODEL = 'gemini-2.0-flash'
 
-let openai = null
-if (hasOpenAI) {
+let geminiModel = null
+if (hasGemini) {
   try {
-    const { OpenAI } = require('openai')
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const { GoogleGenerativeAI } = require('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    geminiModel = genAI.getGenerativeModel({ model: GEMINI_MODEL })
   } catch {
-    logger.warn('[AI] openai package not installed — AI features will use stubs')
+    logger.warn('[AI] @google/generative-ai package not installed — AI features will use stubs')
   }
 }
 
-const chatComplete = async (messages, model = 'gpt-4o-mini') => {
-  if (!openai) {
-    logger.debug('[AI] OpenAI not configured — returning stub response')
-    return '[AI feature requires OPENAI_API_KEY configuration]'
+/**
+ * messages: array of { role: 'system'|'user'|'assistant', content: string }.
+ * Gemini has no dedicated "system" role for chat turns, so the system
+ * message is folded into the first user turn as an instruction preamble.
+ */
+const chatComplete = async (messages) => {
+  if (!geminiModel) {
+    logger.debug('[AI] Gemini not configured — returning stub response')
+    return '[AI feature requires GEMINI_API_KEY configuration]'
   }
-  const resp = await openai.chat.completions.create({ model, messages, temperature: 0.7 })
-  return resp.choices[0].message.content
+
+  const systemMessages = messages.filter((m) => m.role === 'system').map((m) => m.content)
+  const turns = messages.filter((m) => m.role !== 'system')
+
+  const history = turns.slice(0, -1).map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+  const lastTurn = turns[turns.length - 1]
+  const lastMessage = systemMessages.length
+    ? `${systemMessages.join('\n')}\n\n${lastTurn.content}`
+    : lastTurn.content
+
+  const chat = geminiModel.startChat({ history })
+  const result = await chat.sendMessage(lastMessage)
+  return result.response.text()
 }
 
 /**
@@ -42,7 +67,7 @@ const generateCourseSummary = async (course) => {
  * Generate N quiz questions from lecture content text.
  */
 const generateQuizQuestions = async (lectureTitle, contentHint, count = 5) => {
-  if (!openai) {
+  if (!geminiModel) {
     return Array.from({ length: count }, (_, i) => ({
       text: `Sample question ${i + 1} about "${lectureTitle}"`,
       aiGenerated: true,
@@ -52,7 +77,7 @@ const generateQuizQuestions = async (lectureTitle, contentHint, count = 5) => {
         { text: 'Wrong answer B', isCorrect: false },
         { text: 'Wrong answer C', isCorrect: false },
       ],
-      explanation: 'This is a stub explanation — configure OPENAI_API_KEY for real questions.',
+      explanation: 'This is a stub explanation — configure GEMINI_API_KEY for real questions.',
     }))
   }
 
@@ -68,7 +93,7 @@ const generateQuizQuestions = async (lectureTitle, contentHint, count = 5) => {
     if (!Array.isArray(parsed)) throw new Error('Not an array')
     return parsed.map((q) => ({ ...q, aiGenerated: true }))
   } catch {
-    logger.warn('[AI] Failed to parse quiz JSON from OpenAI response')
+    logger.warn('[AI] Failed to parse quiz JSON from Gemini response')
     return []
   }
 }
@@ -78,10 +103,10 @@ const generateQuizQuestions = async (lectureTitle, contentHint, count = 5) => {
  * Returns categories/topics the student should explore.
  */
 const generateRecommendations = async (completedCourses, enrolledCategories) => {
-  if (!openai) {
+  if (!geminiModel) {
     return {
       topics: ['Data Science', 'Web Development', 'DevOps'],
-      reason: 'Explore these popular categories to expand your skills. Configure OPENAI_API_KEY for personalised recommendations.',
+      reason: 'Explore these popular categories to expand your skills. Configure GEMINI_API_KEY for personalised recommendations.',
     }
   }
 
@@ -113,8 +138,8 @@ Your role:
 - Keep responses under 300 words unless the question genuinely requires more detail.
 - Use encouraging, supportive language appropriate for a learner.`
 
-  if (!openai) {
-    return `I'm your AI Tutor for "${courseTitle}". I'm not fully configured yet — ask your instructor or add an OpenAI API key to enable real AI responses. Your question was: "${userMessage}"`
+  if (!geminiModel) {
+    return `I'm your AI Tutor for "${courseTitle}". I'm not fully configured yet — ask your instructor or add a Gemini API key to enable real AI responses. Your question was: "${userMessage}"`
   }
 
   const messages = [
@@ -133,5 +158,5 @@ module.exports = {
   generateQuizQuestions,
   generateRecommendations,
   chatWithTutor,
-  hasOpenAI,
+  hasGemini,
 }
