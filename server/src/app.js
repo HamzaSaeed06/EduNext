@@ -10,6 +10,10 @@ const logger = require('./config/logger')
 const { errorHandler } = require('./middlewares/errorHandler')
 const { generalLimiter } = require('./middlewares/rateLimiter')
 const indexRouter = require('./routes/index')
+const authRouter = require('./routes/auth')
+const coursesRouter = require('./routes/courses')
+const quizzesRouter = require('./routes/quizzes')
+const aiRouter = require('./routes/ai')
 
 const app = express()
 
@@ -63,6 +67,10 @@ if (process.env.NODE_ENV !== 'test') {
 app.use('/api/v1', generalLimiter)
 
 app.use('/api/v1', indexRouter)
+app.use('/api/v1/auth', authRouter)
+app.use('/api/v1/courses', coursesRouter)
+app.use('/api/v1', quizzesRouter)
+app.use('/api/v1', aiRouter)
 
 app.all('*', (req, res) => {
   res.status(404).json({
