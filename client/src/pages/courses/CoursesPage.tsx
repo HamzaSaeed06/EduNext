@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import PublicNavbar from '../../components/layout/PublicNavbar'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import courseService, { type Course } from '../../services/courseService'
@@ -13,12 +14,13 @@ const SORTS = [
 ]
 
 export default function CoursesPage() {
+  const [searchParams] = useSearchParams()
   const [courses, setCourses] = useState<Course[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [level, setLevel] = useState('')
   const [sort, setSort] = useState<'newest' | 'popular' | 'rating'>('newest')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(searchParams.get('search') || '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -46,35 +48,8 @@ export default function CoursesPage() {
 
   return (
     <div className="min-h-screen bg-bg-base font-body">
-      {/* Public Navbar */}
-      <nav className="bg-bg-surface border-b border-border-color px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <svg viewBox="0 0 32 32" className="w-8 h-8" aria-hidden="true">
-              <path
-                d="M8,28 C6,20 14,16 10,8 C14,12 20,10 22,4 C24,14 16,18 20,28"
-                fill="none"
-                stroke="#2F6F4E"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="22" cy="4" r="3" fill="#E2A03E" />
-            </svg>
-            <span className="font-display text-xl font-semibold text-ink-primary">EduNext</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link to="/login">
-              <Button variant="ghost" size="sm">Sign in</Button>
-            </Link>
-            <Link to="/register">
-              <Button size="sm">Start learning</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-10">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -168,9 +143,7 @@ export default function CoursesPage() {
                         <span className="text-micro font-mono text-trail-amber">★ {course.averageRating.toFixed(1)}</span>
                       )}
                     </div>
-                    <h3 className="font-display text-heading leading-snug text-ink-primary mb-1 flex-1">
-                      {course.title}
-                    </h3>
+                    <h3 className="font-display text-heading leading-snug text-ink-primary mb-1 flex-1">{course.title}</h3>
                     <p className="text-small text-ink-muted mb-1">{course.instructor?.name}</p>
                     <p className="text-micro text-ink-muted mb-4">{course.category}</p>
                     <div className="flex items-center justify-between mt-auto">
@@ -196,7 +169,6 @@ export default function CoursesPage() {
         </motion.div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border-color px-6 py-6 mt-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-small text-ink-muted flex-wrap gap-3">
           <Link to="/" className="font-display font-semibold text-ink-primary">EduNext</Link>

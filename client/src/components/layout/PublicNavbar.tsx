@@ -1,0 +1,103 @@
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import Button from '../ui/Button'
+
+const CATEGORIES = [
+  { label: 'Web Development', icon: '🌐', q: 'web' },
+  { label: 'Data Science', icon: '📊', q: 'data' },
+  { label: 'Design & UX', icon: '🎨', q: 'design' },
+  { label: 'Machine Learning', icon: '🤖', q: 'ml' },
+  { label: 'Business', icon: '💼', q: 'business' },
+  { label: 'Marketing', icon: '📣', q: 'marketing' },
+  { label: 'Programming', icon: '💻', q: 'programming' },
+  { label: 'Cybersecurity', icon: '🔒', q: 'security' },
+]
+
+export default function PublicNavbar() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <nav className="bg-bg-surface border-b border-border-color px-6 py-4 sticky top-0 z-30">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 shrink-0">
+          <svg viewBox="0 0 32 32" className="w-8 h-8" aria-hidden="true">
+            <path
+              d="M8,28 C6,20 14,16 10,8 C14,12 20,10 22,4 C24,14 16,18 20,28"
+              fill="none" stroke="#2F6F4E" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+            />
+            <circle cx="22" cy="4" r="3" fill="#E2A03E" />
+          </svg>
+          <span className="font-display text-xl font-semibold text-ink-primary">EduNext</span>
+        </Link>
+
+        {/* Nav links */}
+        <div className="hidden md:flex items-center gap-1">
+          {/* Courses dropdown */}
+          <div className="relative" ref={ref}>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-1 px-3 py-2 text-small font-medium text-ink-muted hover:text-ink-primary rounded-btn hover:bg-bg-surface-alt transition-colors"
+            >
+              Courses
+              <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {open && (
+              <div className="absolute top-full left-0 mt-1 w-64 bg-bg-surface border border-border-color rounded-card shadow-card py-2 z-50">
+                <Link
+                  to="/courses"
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-2 text-small font-medium text-ink-primary hover:bg-bg-surface-alt transition-colors"
+                >
+                  Browse all courses →
+                </Link>
+                <div className="border-t border-border-color my-2" />
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.q}
+                    onClick={() => {
+                      setOpen(false)
+                      navigate(`/courses?search=${cat.q}`)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-small text-ink-muted hover:text-ink-primary hover:bg-bg-surface-alt transition-colors text-left"
+                  >
+                    <span>{cat.icon}</span>
+                    <span>{cat.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Link to="/#how-it-works" className="px-3 py-2 text-small font-medium text-ink-muted hover:text-ink-primary rounded-btn hover:bg-bg-surface-alt transition-colors">
+            How it works
+          </Link>
+        </div>
+
+        {/* Auth buttons */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Link to="/login">
+            <Button variant="ghost" size="sm">Sign in</Button>
+          </Link>
+          <Link to="/register">
+            <Button size="sm">Start learning</Button>
+          </Link>
+        </div>
+      </div>
+    </nav>
+  )
+}

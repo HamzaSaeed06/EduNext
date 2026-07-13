@@ -4,6 +4,21 @@
 
 ---
 
+## Phase Completion Status
+
+| Phase | Title | Status |
+|-------|-------|--------|
+| Phase 1 | Project Setup & Infrastructure | ✅ Complete |
+| Phase 2 | Authentication System | ✅ Complete |
+| Phase 3 | Course Management | ✅ Complete |
+| Phase 4 | Learning Experience (player, progress, Q&A) | ✅ Complete |
+| Phase 5 | AI Features (tutor chatbot, recommendations) | ✅ Complete |
+| Phase 6 | Admin Panel (dashboard, user management) | ✅ Complete |
+| Phase 7 | Polish (dark mode, notifications, PWA, CI/CD) | ✅ Complete |
+| Phase 8 | Public UX (homepage sections, public navbar) | ✅ Complete |
+
+---
+
 ## 2026-07-13 — Backend port set to 3000
 
 **Decision:** Express server runs on port 3000 (not 5000).
@@ -50,3 +65,37 @@
 
 **Decision:** The Socket.io server is initialized alongside Express but the client only connects to the notification namespace when the user is logged in. The implementation provides a real-time notification bell in AppShell.
 **Reason:** Real-time notifications are a Phase 7 feature. The implementation is minimal — course approval/rejection triggers an emit to the affected user's room. Expanding to other event types is straightforward.
+
+---
+
+## 2026-07-13 — Instructor role: admin-only creation
+
+**Decision:** The public `/register` page only creates `student` accounts. The `instructor` role is assigned by an admin via the Admin Users panel (`PATCH /admin/users/:id/role`).
+**Reason:** Allowing self-signup as instructor would bypass quality control. Instructors should be verified before they can publish courses. This matches how Udemy/Coursera handle instructor onboarding.
+
+---
+
+## 2026-07-13 — Public pages use PublicNavbar (no AppShell)
+
+**Decision:** The homepage (`/`) and courses listing (`/courses`) use a shared `PublicNavbar` component instead of `AppShell`.
+**Reason:** Unauthenticated users should never see the sidebar with Dashboard, Certificates, Sign out, etc. `PublicNavbar` provides a clean top nav with a Courses dropdown (categories) and Sign in / Start learning CTA buttons. Logged-in users accessing `/courses` will still see the public layout — they can navigate to their dashboard via the sidebar after login.
+
+---
+
+## Future Feature Backlog
+
+Features that can be added in subsequent phases:
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Google OAuth login | High | Needs `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` |
+| PDF certificate download | Medium | pdfkit or puppeteer |
+| Stripe payments / course pricing | High | Paid courses, subscription model |
+| Video upload (instructor) | High | Cloudinary or S3 integration |
+| Email notifications (Nodemailer) | Medium | Welcome email, enrollment confirmation |
+| Course reviews & ratings (UI) | Medium | Backend exists, frontend UI needed |
+| Student progress analytics | Medium | Charts for instructor dashboard |
+| Course completion email | Low | Triggered on final lesson complete |
+| Mobile app (React Native/Expo) | Low | API is already REST-ready |
+| Multi-language support (i18n) | Low | react-i18next |
+| Live classes / webinars | Low | WebRTC or third-party (Daily.co) |
