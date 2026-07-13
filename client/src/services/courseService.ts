@@ -52,6 +52,47 @@ export interface Enrollment {
   review?: string | null
 }
 
+export interface QuizOption {
+  _id: string
+  text: string
+  isCorrect?: boolean
+}
+
+export interface QuizQuestion {
+  _id: string
+  text: string
+  options: QuizOption[]
+  explanation?: string
+  aiGenerated?: boolean
+}
+
+export interface Quiz {
+  _id: string
+  title: string
+  lecture: string | null
+  course: string
+  questions: QuizQuestion[]
+  passingScore: number
+  timeLimit: number | null
+  isPublished: boolean
+  aiGenerated: boolean
+}
+
+export interface QuizResult {
+  score: number
+  passed: boolean
+  earned: number
+  totalQuestions: number
+  passingScore: number
+  progress: number
+  feedback: Array<{
+    questionId: string
+    correct: boolean
+    explanation: string
+    correctOptionId: string
+  }>
+}
+
 export interface DiscussionPost {
   _id: string
   course: string
@@ -196,6 +237,44 @@ const courseService = {
 
   async aiSummarize(courseId: string): Promise<{ summary: string }> {
     const res = await api.post(`/ai/courses/${courseId}/summarize`)
+    return res.data.data
+  },
+
+  // ── Quiz ──────────────────────────────────────────────────────────
+
+  async getQuizForLecture(lectureId: string): Promise<{ quiz: Quiz | null }> {
+    const res = await api.get(`/lectures/${lectureId}/quiz`)
+    return res.data.data
+  },
+
+  async submitQuiz(quizId: string, answers: Array<{ questionId: string; selectedOptionId: string }>): Promise<QuizResult> {
+    const res = await api.post(`/quizzes/${quizId}/submit`, { answers })
+    return res.data.data
+  },
+
+  async createQuiz(lectureId: string, data: {
+    title: string
+    questions: Array<{ text: string; options: Array<{ text: string; isCorrect: boolean }>; explanation?: string }>
+    passingScore?: number
+    timeLimit?: number | null
+  }): Promise<{ quiz: Quiz }> {
+    const res = await api.post(`/lectures/${lectureId}/quiz`, data)
+    return res.data.data
+  },
+
+  async updateQuiz(quizId: string, data: Partial<{
+    title: string
+    questions: QuizQuestion[]
+    passingScore: number
+    timeLimit: number | null
+    isPublished: boolean
+  }>): Promise<{ quiz: Quiz }> {
+    const res = await api.patch(`/quizzes/${quizId}`, data)
+    return res.data.data
+  },
+
+  async generateQuizForLecture(lectureId: string, count = 5): Promise<{ quiz: Quiz }> {
+    const res = await api.post(`/ai/lectures/${lectureId}/generate-quiz`, { count })
     return res.data.data
   },
 }

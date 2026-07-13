@@ -9,9 +9,200 @@ import TrailProgress from '../../components/ui/TrailProgress'
 import DiscussionPanel from '../../components/ui/DiscussionPanel'
 import AIChatWidget from '../../components/ui/AIChatWidget'
 import type { RootState } from '../../features/store'
-import courseService, { type Course, type Section, type Lecture, type LectureProgress } from '../../services/courseService'
+import courseService, {
+  type Course, type Section, type Lecture, type LectureProgress,
+  type Quiz, type QuizResult,
+} from '../../services/courseService'
 
 type Tab = 'content' | 'discussion'
+
+// ── Quiz Player ───────────────────────────────────────────────────────────────
+function QuizPlayer({
+  lectureId,
+  alreadyPassed,
+  onPassed,
+}: {
+  lectureId: string
+  alreadyPassed: boolean
+  onPassed: (progress: number) => void
+}) {
+  const [quiz, setQuiz] = useState<Quiz | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [result, setResult] = useState<QuizResult | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [retakeMode, setRetakeMode] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    setResult(null)
+    setAnswers({})
+    setRetakeMode(false)
+    courseService.getQuizForLecture(lectureId)
+      .then(({ quiz: q }) => setQuiz(q))
+      .catch(() => setQuiz(null))
+      .finally(() => setLoading(false))
+  }, [lectureId])
+
+  const handleSubmit = async () => {
+    if (!quiz) return
+    const answerArr = Object.entries(answers).map(([questionId, selectedOptionId]) => ({
+      questionId, selectedOptionId,
+    }))
+    if (answerArr.length < quiz.questions.length) {
+      setError('Please answer all questions before submitting.')
+      return
+    }
+    setError('')
+    setSubmitting(true)
+    try {
+      const res = await courseService.submitQuiz(quiz._id, answerArr)
+      setResult(res)
+      if (res.passed) onPassed(res.progress)
+    } catch {
+      setError('Submission failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="space-y-3 animate-pulse">{[1,2,3].map(i => <div key={i} className="h-16 bg-bg-surface-alt rounded-card" />)}</div>
+  }
+
+  if (!quiz || !quiz.isPublished) {
+    return (
+      <div className="rounded-card border border-border-color p-8 text-center text-ink-muted">
+        <p className="text-display-s mb-2">📝</p>
+        <p className="text-body font-medium text-ink-primary mb-1">Quiz not available yet</p>
+        <p className="text-small">The instructor hasn't published a quiz for this lecture.</p>
+      </div>
+    )
+  }
+
+  // Already passed + not in retake mode
+  if (alreadyPassed && !retakeMode && !result) {
+    return (
+      <div className="rounded-card border border-trail-green/30 bg-trail-green/5 p-8 text-center">
+        <p className="text-display-s mb-2">🎉</p>
+        <p className="text-body font-semibold text-trail-green mb-1">Quiz passed!</p>
+        <p className="text-small text-ink-muted mb-4">You've already passed this quiz. The next section is unlocked.</p>
+        <button onClick={() => setRetakeMode(true)} className="text-small text-trail-green hover:underline">
+          Retake anyway →
+        </button>
+      </div>
+    )
+  }
+
+  // Result screen
+  if (result) {
+    const passed = result.passed
+    return (
+      <div className={`rounded-card border p-6 ${passed ? 'border-trail-green/30 bg-trail-green/5' : 'border-error-clay/30 bg-error-clay/5'}`}>
+        <div className="text-center mb-6">
+          <p className="text-display-s mb-2">{passed ? '🎉' : '😔'}</p>
+          <p className={`font-display text-heading-l font-bold mb-1 ${passed ? 'text-trail-green' : 'text-error-clay'}`}>
+            {passed ? 'You passed!' : 'Not quite'}
+          </p>
+          <p className="text-small text-ink-muted">
+            Score: <span className="font-bold text-ink-primary">{result.score}%</span> · Needed: {result.passingScore}%
+          </p>
+          <p className="text-small text-ink-muted">{result.earned} / {result.totalQuestions} correct</p>
+        </div>
+
+        {/* Per-question feedback */}
+        <div className="space-y-3 mb-6">
+          {quiz.questions.map((q, qi) => {
+            const fb = result.feedback.find(f => f.questionId === q._id)
+            return (
+              <div key={q._id} className={`p-3 rounded-btn border text-small ${fb?.correct ? 'border-trail-green/20 bg-trail-green/5' : 'border-error-clay/20 bg-error-clay/5'}`}>
+                <p className="font-medium text-ink-primary mb-1">Q{qi + 1}. {q.text}</p>
+                <p className={fb?.correct ? 'text-trail-green' : 'text-error-clay'}>
+                  {fb?.correct ? '✓ Correct' : '✗ Incorrect'}
+                </p>
+                {!fb?.correct && fb?.explanation && (
+                  <p className="text-ink-muted mt-1 text-micro">💡 {fb.explanation}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex gap-3 justify-center">
+          {!passed && (
+            <Button variant="secondary" onClick={() => { setResult(null); setAnswers({}) }}>
+              Try again
+            </Button>
+          )}
+          {passed && nextLectureHelper && (
+            <span className="text-small text-trail-green font-medium self-center">
+              ✓ Next section is now unlocked!
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Quiz taking UI
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-heading text-ink-primary">{quiz.title}</h3>
+        <span className="text-micro text-ink-muted bg-bg-surface-alt px-2 py-1 rounded-pill">
+          {quiz.questions.length} questions · {quiz.passingScore}% to pass
+        </span>
+      </div>
+
+      {error && <p className="text-small text-error-clay">{error}</p>}
+
+      <div className="space-y-5">
+        {quiz.questions.map((q, qi) => (
+          <div key={q._id} className="p-4 rounded-card border border-border-color bg-bg-surface">
+            <p className="text-small font-semibold text-ink-primary mb-3">
+              <span className="text-trail-green mr-2">Q{qi + 1}.</span>{q.text}
+            </p>
+            <div className="space-y-2">
+              {q.options.map((opt) => {
+                const selected = answers[q._id] === opt._id
+                return (
+                  <button
+                    key={opt._id}
+                    onClick={() => setAnswers(prev => ({ ...prev, [q._id]: opt._id }))}
+                    className={`w-full text-left px-3 py-2.5 rounded-btn border text-small transition-all ${
+                      selected
+                        ? 'border-trail-green bg-trail-green/8 text-trail-green font-medium'
+                        : 'border-border-color hover:border-trail-green/50 hover:bg-bg-surface-alt text-ink-primary'
+                    }`}
+                  >
+                    <span className={`inline-flex w-5 h-5 rounded-full border items-center justify-center mr-2 shrink-0 ${selected ? 'border-trail-green bg-trail-green' : 'border-border-color'}`}>
+                      {selected && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </span>
+                    {opt.text}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          onClick={handleSubmit}
+          isLoading={submitting}
+          disabled={Object.keys(answers).length < quiz.questions.length}
+        >
+          Submit quiz →
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Workaround: QuizPlayer needs a "nextLecture exists" signal — pass via module-level ref
+let nextLectureHelper = false
 
 export default function CoursePlayerPage() {
   const { slug } = useParams<{ slug: string }>()

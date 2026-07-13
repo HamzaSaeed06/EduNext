@@ -7,146 +7,117 @@ interface TrailProgressProps {
   totalCount?: number
 }
 
-// Animated circular ring that shows the percentage
-function ProgressRing({
-  progress,
-  size = 52,
-}: {
-  progress: number
-  size?: number
-}) {
-  const radius = (size - 6) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (progress / 100) * circumference
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90" aria-hidden="true">
-      {/* Track */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#DADFD3"
-        strokeWidth={5}
-      />
-      {/* Fill */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="url(#progressGrad)"
-        strokeWidth={5}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-      />
-      <defs>
-        <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3A8F62" />
-          <stop offset="100%" stopColor="#5BB580" />
-        </linearGradient>
-      </defs>
-    </svg>
-  )
-}
-
 export default function TrailProgress({
   progress,
   checkpoints = 5,
   size = 'mini',
   className = '',
-  completedCount,
-  totalCount,
 }: TrailProgressProps) {
-  const clamped = Math.min(100, Math.max(0, progress))
+  const clampedProgress = Math.min(100, Math.max(0, progress))
+  const viewBoxWidth = size === 'mini' ? 120 : 40
+  const viewBoxHeight = size === 'mini' ? 24 : 300
 
   if (size === 'mini') {
+    const totalLength = 110
+    const filledLength = (clampedProgress / 100) * totalLength
+    const dashOffset = totalLength - filledLength
+
     return (
-      <div className={`flex items-center gap-3 ${className}`}>
-        {/* Circular ring */}
-        <div className="relative shrink-0">
-          <ProgressRing progress={clamped} size={48} />
-          <span
-            className="absolute inset-0 flex items-center justify-center text-micro font-bold text-trail-green"
-            style={{ fontSize: 10 }}
-          >
-            {clamped}%
-          </span>
-        </div>
+      <svg
+        viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+        className={`w-full ${className}`}
+        aria-hidden="true"
+        role="img"
+        aria-label={`Progress: ${clampedProgress}%`}
+      >
+        <path
+          d="M5,12 C20,8 30,16 45,12 C60,8 70,16 85,12 C100,8 110,14 115,12"
+          fill="none"
+          stroke="#DADFD3"
+          strokeWidth="2.5"
+          strokeDasharray="4 3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M5,12 C20,8 30,16 45,12 C60,8 70,16 85,12 C100,8 110,14 115,12"
+          fill="none"
+          stroke="#2F6F4E"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={`${totalLength}`}
+          strokeDashoffset={`${dashOffset}`}
+          className="trail-animate"
+        />
+        {Array.from({ length: checkpoints }).map((_, i) => {
+          const cx = 5 + (i / (checkpoints - 1)) * 110
+          const isCompleted = (i / (checkpoints - 1)) * 100 <= clampedProgress
+          const isCurrent =
+            !isCompleted &&
+            i > 0 &&
+            ((i - 1) / (checkpoints - 1)) * 100 <= clampedProgress
 
-        {/* Right: bar + label */}
-        <div className="flex-1 min-w-0">
-          {completedCount !== undefined && totalCount !== undefined ? (
-            <p className="text-micro text-ink-muted mb-1.5 truncate">
-              {completedCount} of {totalCount} lessons done
-            </p>
-          ) : (
-            <p className="text-micro text-ink-muted mb-1.5">Course progress</p>
-          )}
-
-          {/* Segmented bar */}
-          <div className="relative h-2 w-full rounded-full bg-bg-surface-alt overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-trail-green to-green-400 transition-all duration-700"
-              style={{ width: `${clamped}%` }}
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={12}
+              r={3}
+              fill={isCompleted ? '#2F6F4E' : '#FFFFFF'}
+              stroke={isCompleted ? '#2F6F4E' : isCurrent ? '#2F6F4E' : '#DADFD3'}
+              strokeWidth={isCurrent ? 2 : 1.5}
+              className={isCurrent ? 'animate-pulse' : ''}
             />
-          </div>
-
-          {/* Checkpoint dots */}
-          <div className="flex justify-between mt-1.5">
-            {Array.from({ length: checkpoints }).map((_, i) => {
-              const pct = (i / (checkpoints - 1)) * 100
-              const done = pct <= clamped
-              return (
-                <div
-                  key={i}
-                  className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
-                    done ? 'bg-trail-green' : 'bg-border-color'
-                  }`}
-                />
-              )
-            })}
-          </div>
-        </div>
-      </div>
+          )
+        })}
+      </svg>
     )
   }
 
-  // Full (vertical) variant — sidebar timeline
   return (
-    <div className={`flex flex-col items-center gap-1 py-2 ${className}`}>
-      <div className="relative">
-        <ProgressRing progress={clamped} size={64} />
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-small font-bold text-trail-green leading-none">{clamped}%</span>
-          <span className="text-micro text-ink-muted leading-none mt-0.5">done</span>
-        </div>
-      </div>
+    <svg
+      viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+      className={`h-full ${className}`}
+      aria-label={`Progress: ${clampedProgress}%`}
+    >
+      <path
+        d="M20,10 C14,40 26,70 18,100 C12,130 24,160 20,190 C16,220 26,250 20,280 C18,290 20,295 20,295"
+        fill="none"
+        stroke="#DADFD3"
+        strokeWidth="3"
+        strokeDasharray="6 4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20,10 C14,40 26,70 18,100 C12,130 24,160 20,190 C16,220 26,250 20,280 C18,290 20,295 20,295"
+        fill="none"
+        stroke="#2F6F4E"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray="400"
+        strokeDashoffset={`${400 - (clampedProgress / 100) * 400}`}
+        className="trail-animate"
+      />
+      {Array.from({ length: checkpoints }).map((_, i) => {
+        const cy = 10 + (i / (checkpoints - 1)) * 285
+        const isCompleted = (i / (checkpoints - 1)) * 100 <= clampedProgress
+        const isCurrent =
+          !isCompleted &&
+          i > 0 &&
+          ((i - 1) / (checkpoints - 1)) * 100 <= clampedProgress
 
-      {/* Vertical segment lane */}
-      <div className="relative w-1.5 rounded-full bg-bg-surface-alt overflow-hidden" style={{ height: 240 }}>
-        <div
-          className="absolute top-0 left-0 w-full rounded-full bg-gradient-to-b from-trail-green to-green-400 transition-all duration-700"
-          style={{ height: `${clamped}%` }}
-        />
-      </div>
-
-      {/* Checkpoint labels */}
-      <div className="flex flex-col gap-1 w-full">
-        {Array.from({ length: checkpoints }).map((_, i) => {
-          const pct = (i / (checkpoints - 1)) * 100
-          const done = pct <= clamped
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${done ? 'bg-trail-green' : 'bg-border-color'}`} />
-              <div className={`h-px flex-1 ${done ? 'bg-trail-green/30' : 'bg-border-color'}`} />
-            </div>
-          )
-        })}
-      </div>
-    </div>
+        return (
+          <circle
+            key={i}
+            cx={20}
+            cy={cy}
+            r={5}
+            fill={isCompleted ? '#2F6F4E' : '#FFFFFF'}
+            stroke={isCompleted ? '#2F6F4E' : isCurrent ? '#2F6F4E' : '#DADFD3'}
+            strokeWidth={isCurrent ? 2.5 : 2}
+            className={isCurrent ? 'animate-pulse' : ''}
+          />
+        )
+      })}
+    </svg>
   )
 }

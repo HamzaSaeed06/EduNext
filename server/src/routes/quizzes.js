@@ -1,10 +1,11 @@
 const express = require('express')
 const router = express.Router()
-const { createQuiz, getQuiz, updateQuiz, deleteQuiz, submitQuiz } = require('../controllers/quizController')
+const { createQuiz, getQuiz, updateQuiz, deleteQuiz, submitQuiz, getLectureQuiz } = require('../controllers/quizController')
 const { issueCertificate, verifyCertificate, getMyCertificates, downloadCertificate } = require('../controllers/certificateController')
 const { protect, restrict } = require('../middlewares/auth')
 
 // Quiz CRUD
+router.get('/lectures/:lectureId/quiz', protect, getLectureQuiz)
 router.post('/lectures/:lectureId/quiz', protect, restrict('instructor', 'admin'), createQuiz)
 router.get('/quizzes/:id', protect, getQuiz)
 router.patch('/quizzes/:id', protect, restrict('instructor', 'admin'), updateQuiz)

@@ -106,11 +106,96 @@ const submitQuiz = asyncHandler(async (req, res) => {
   const score = totalQuestions > 0 ? Math.round((earned / totalQuestions) * 100) : 0
   const passed = score >= quiz.passingScore
 
+  // Record quiz attempt in enrollment
+  const existingAttempt = enrollment.passedQuizzes?.find(
+    (pq) => String(pq.quiz) === String(quiz._id),
+  )
+  if (existingAttempt) {
+    existingAttempt.score = score
+    existingAttempt.passed = existingAttempt.passed || passed
+    existingAttempt.attemptedAt = new Date()
+  } else {
+    if (!enrollment.passedQuizzes) enrollment.passedQuizzes = []
+    enrollment.passedQuizzes.push({ quiz: quiz._id, score, passed, attemptedAt: new Date() })
+  }
+
+  // If passed, mark the quiz lecture as completed and recalculate progress
+  if (passed && quiz.lecture) {
+    const lp = enrollment.completedLectures?.find(
+      (l) => String(l.lecture) === String(quiz.lecture),
+    )
+    if (lp) {
+      lp.completed = true
+      lp.completedAt = new Date()
+    } else {
+      if (!enrollment.completedLectures) enrollment.completedLectures = []
+      enrollment.completedLectures.push({
+        lecture: quiz.lecture,
+        completed: true,
+        completedAt: new Date(),
+        watchedSeconds: 0,
+        lastPosition: 0,
+      })
+    }
+
+    // Recalculate overall progress
+    const Lecture = require('../models/Lecture')
+    const allLectures = await Lecture.find({ course: quiz.course, isDeleted: false })
+    const completedCount = enrollment.completedLectures.filter((l) => l.completed).length
+    enrollment.progress = Math.round((completedCount / Math.max(allLectures.length, 1)) * 100)
+    enrollment.isCompleted = enrollment.progress === 100
+    if (enrollment.isCompleted && !enrollment.completedAt) enrollment.completedAt = new Date()
+  }
+
+  await enrollment.save()
+
   res.json({
     success: true,
-    data: { score, passed, earned, totalQuestions, passingScore: quiz.passingScore, feedback },
+    data: {
+      score, passed, earned, totalQuestions,
+      passingScore: quiz.passingScore, feedback,
+      progress: enrollment.progress,
+    },
     message: passed ? 'Congratulations! You passed.' : `You scored ${score}%. Keep practicing!`,
   })
 })
 
-module.exports = { createQuiz, getQuiz, updateQuiz, deleteQuiz, submitQuiz }
+// GET /api/v1/lectures/:lectureId/quiz  — enrolled student or instructor
+const getLectureQuiz = asyncHandler(async (req, res) => {
+  const lecture = await require('../models/Lecture')
+    .findOne({ _id: req.params.lectureId, isDeleted: false })
+    .populate({ path: 'section', populate: 'course' })
+  if (!lecture) throw new AppError('Lecture not found', 404, 'NOT_FOUND')
+
+  const isInstructor = String(lecture.section.course.instructor) === String(req.user._id)
+  const isAdmin = req.user.role === 'admin'
+
+  if (!isInstructor && !isAdmin) {
+    const enroll = await require('../models/Enrollment').findOne({
+      student: req.user._id,
+      course: lecture.section.course._id,
+    })
+    if (!enroll) throw new AppError('Not enrolled', 403, 'FORBIDDEN')
+  }
+
+  const quiz = await Quiz.findOne({ lecture: lecture._id, isDeleted: false })
+  if (!quiz) return res.json({ success: true, data: { quiz: null }, message: '' })
+
+  // Students don't see correct-answer flags
+  if (req.user.role === 'student') {
+    const safeQuiz = {
+      ...quiz.toObject(),
+      questions: quiz.questions.map((q) => ({
+        _id: q._id,
+        text: q.text,
+        options: q.options.map((o) => ({ _id: o._id, text: o.text })),
+        explanation: '',
+      })),
+    }
+    return res.json({ success: true, data: { quiz: safeQuiz }, message: '' })
+  }
+
+  res.json({ success: true, data: { quiz }, message: '' })
+})
+
+module.exports = { createQuiz, getQuiz, updateQuiz, deleteQuiz, submitQuiz, getLectureQuiz }

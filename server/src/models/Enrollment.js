@@ -1,5 +1,15 @@
 const mongoose = require('mongoose')
 
+const passedQuizSchema = new mongoose.Schema(
+  {
+    quiz: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', required: true },
+    score: { type: Number, required: true },
+    passed: { type: Boolean, default: false },
+    attemptedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+)
+
 const lectureProgressSchema = new mongoose.Schema(
   {
     lecture: {
@@ -34,6 +44,7 @@ const enrollmentSchema = new mongoose.Schema(
       max: 100,
     },
     completedLectures: [lectureProgressSchema],
+    passedQuizzes: [passedQuizSchema],
     isCompleted: {
       type: Boolean,
       default: false,
