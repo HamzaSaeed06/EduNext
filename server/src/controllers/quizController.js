@@ -138,12 +138,14 @@ const submitQuiz = asyncHandler(async (req, res) => {
       })
     }
 
-    // Recalculate overall progress
+    // Recalculate overall progress — same denominator (all lecture types,
+    // including quizzes) as enrollmentController.updateProgress, and clamped
+    // to 100 so the two endpoints can never disagree on completion.
     const Lecture = require('../models/Lecture')
-    const allLectures = await Lecture.find({ course: quiz.course, isDeleted: false })
+    const totalLectures = await Lecture.countDocuments({ course: quiz.course, isDeleted: false })
     const completedCount = enrollment.completedLectures.filter((l) => l.completed).length
-    enrollment.progress = Math.round((completedCount / Math.max(allLectures.length, 1)) * 100)
-    enrollment.isCompleted = enrollment.progress === 100
+    enrollment.progress = totalLectures > 0 ? Math.min(100, Math.round((completedCount / totalLectures) * 100)) : 0
+    enrollment.isCompleted = enrollment.progress >= 100
     if (enrollment.isCompleted && !enrollment.completedAt) enrollment.completedAt = new Date()
   }
 

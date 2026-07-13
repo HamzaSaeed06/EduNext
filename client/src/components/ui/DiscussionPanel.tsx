@@ -73,15 +73,28 @@ function PostItem({
 }) {
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [replyingToName, setReplyingToName] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [repliesOpen, setRepliesOpen] = useState(false)
 
+  const openReplyTo = (name: string | null) => {
+    setReplyingToName(name)
+    setReplyText(name ? `@${name} ` : '')
+    setReplyOpen(true)
+    setRepliesOpen(true)
+  }
+
+  // Every reply (including "reply to a reply") is submitted as a flat reply
+  // on the top-level post — same threading model TikTok uses — but tagging
+  // whoever is being replied to via an @mention prefix.
   const handleReply = async () => {
     if (!replyText.trim()) return
     setSubmitting(true)
     try {
       await onReply(post._id, replyText)
       setReplyText('')
+      setReplyingToName(null)
       setReplyOpen(false)
     } finally {
       setSubmitting(false)
@@ -142,71 +155,87 @@ function PostItem({
             {/* Content */}
             <p className="text-small text-ink-primary whitespace-pre-wrap">{post.content}</p>
 
-            {/* Replies */}
-            {post.replies?.length > 0 && (
-              <div className="mt-3 pl-4 border-l-2 border-border-color space-y-3">
-                {post.replies.map((reply) => (
-                  <div key={reply._id} className="flex items-start gap-2">
-                    <div className="w-6 h-6 rounded-full bg-signal-blue/10 flex items-center justify-center text-signal-blue text-micro font-medium shrink-0">
-                      {reply.author.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-small font-medium text-ink-primary">{reply.author.name}</span>
-                        {reply.isInstructorReply && (
-                          <span className="text-micro bg-trail-amber/10 text-trail-amber px-2 py-0.5 rounded-pill">Instructor</span>
-                        )}
-                        <span className="text-micro text-ink-muted">{timeAgo(reply.createdAt)}</span>
-                        {userId === reply.author._id && (
-                          <button
-                            onClick={() => setDeleteTarget(reply._id)}
-                            title="Delete reply"
-                            className="ml-auto text-ink-muted hover:text-error-clay transition-colors p-1 rounded"
-                            aria-label="Delete reply"
-                          >
-                            <TrashIcon className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-small text-ink-primary whitespace-pre-wrap">{reply.content}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Reply toggle — always visible on every post */}
-            <div className="flex items-center gap-2 mt-3">
+            {/* Like-style reply toggle row (TikTok: "Reply" + "View N replies" under the comment) */}
+            <div className="flex items-center gap-4 mt-2">
               <button
-                onClick={() => setReplyOpen((o) => !o)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-micro font-medium border transition-all duration-150 ${
-                  replyOpen
-                    ? 'bg-trail-green/10 border-trail-green/30 text-trail-green'
-                    : 'bg-bg-surface-alt border-border-color text-ink-muted hover:border-trail-green hover:text-trail-green hover:bg-trail-green/5'
-                }`}
+                onClick={() => openReplyTo(post.author.name)}
+                className="text-micro font-semibold text-ink-muted hover:text-ink-primary transition-colors"
               >
-                {replyOpen ? (
-                  <>
-                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                    Cancel
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Reply
-                  </>
-                )}
+                Reply
               </button>
               {post.replies?.length > 0 && (
-                <span className="text-micro text-ink-muted">
-                  {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
-                </span>
+                <button
+                  onClick={() => setRepliesOpen((o) => !o)}
+                  className="inline-flex items-center gap-1 text-micro font-semibold text-ink-muted hover:text-ink-primary transition-colors"
+                >
+                  <span className={`inline-block w-4 h-px bg-border-color`} />
+                  {repliesOpen ? 'Hide' : 'View'} {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
+                  <svg
+                    className={`w-3 h-3 transition-transform ${repliesOpen ? 'rotate-180' : ''}`}
+                    viewBox="0 0 20 20" fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
               )}
             </div>
+
+            {/* Replies — TikTok-style thread: a curved connector elbows out of the
+                vertical trunk line into each reply avatar. */}
+            <AnimatePresence initial={false}>
+              {repliesOpen && post.replies?.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="relative mt-3 pl-9 space-y-4">
+                    {/* vertical trunk */}
+                    <div className="absolute left-3 top-0 bottom-5 w-px bg-border-color" aria-hidden="true" />
+                    {post.replies.map((reply) => (
+                      <div key={reply._id} className="relative flex items-start gap-2">
+                        {/* curved elbow connector: vertical + rounded corner into a
+                            horizontal stub that points at the reply avatar */}
+                        <span
+                          className="absolute -left-6 -top-3 w-5 h-7 border-l-2 border-b-2 border-border-color rounded-bl-2xl"
+                          aria-hidden="true"
+                        />
+                        <div className="w-6 h-6 rounded-full bg-signal-blue/10 flex items-center justify-center text-signal-blue text-micro font-medium shrink-0">
+                          {reply.author.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-small font-medium text-ink-primary">{reply.author.name}</span>
+                            {reply.isInstructorReply && (
+                              <span className="text-micro bg-trail-amber/10 text-trail-amber px-2 py-0.5 rounded-pill">Instructor</span>
+                            )}
+                            <span className="text-micro text-ink-muted">{timeAgo(reply.createdAt)}</span>
+                            {userId === reply.author._id && (
+                              <button
+                                onClick={() => setDeleteTarget(reply._id)}
+                                title="Delete reply"
+                                className="ml-auto text-ink-muted hover:text-error-clay transition-colors p-1 rounded"
+                                aria-label="Delete reply"
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-small text-ink-primary whitespace-pre-wrap">{reply.content}</p>
+                          <button
+                            onClick={() => openReplyTo(reply.author.name)}
+                            className="mt-1 text-micro font-semibold text-ink-muted hover:text-ink-primary transition-colors"
+                          >
+                            Reply
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Reply form */}
             <AnimatePresence>
@@ -217,20 +246,38 @@ function PostItem({
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-2 overflow-hidden"
                 >
-                  <textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Write a reply…"
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-btn border border-border-color bg-bg-surface text-small text-ink-primary focus:outline-none focus:border-trail-green focus:ring-1 focus:ring-trail-green resize-none"
-                    maxLength={2000}
-                    autoFocus
-                  />
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-micro text-ink-muted">{replyText.length}/2000</span>
-                    <Button size="sm" isLoading={submitting} onClick={handleReply} disabled={!replyText.trim()}>
-                      Post reply
-                    </Button>
+                  <div className="flex items-start gap-2 pl-1">
+                    <div className="flex-1">
+                      {replyingToName && (
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-micro text-ink-muted">Replying to <span className="font-medium text-ink-primary">{replyingToName}</span></span>
+                          <button
+                            onClick={() => { setReplyOpen(false); setReplyingToName(null); setReplyText('') }}
+                            className="text-ink-muted hover:text-error-clay transition-colors"
+                            aria-label="Cancel reply"
+                          >
+                            <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Write a reply…"
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-btn border border-border-color bg-bg-surface text-small text-ink-primary focus:outline-none focus:border-trail-green focus:ring-1 focus:ring-trail-green resize-none"
+                        maxLength={2000}
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-micro text-ink-muted">{replyText.length}/2000</span>
+                        <Button size="sm" isLoading={submitting} onClick={handleReply} disabled={!replyText.trim()}>
+                          Post reply
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               )}

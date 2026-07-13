@@ -70,12 +70,14 @@ const updateProgress = asyncHandler(async (req, res) => {
     })
   }
 
-  // Recalculate overall progress
-  const totalLectures = await Lecture.countDocuments({ course: enrollment.course, isDeleted: false, type: { $ne: 'quiz' } })
+  // Recalculate overall progress — counts ALL lecture types (including quizzes),
+  // matching the denominator used in quizController.submitQuiz so the two
+  // endpoints never disagree on what "100%" means.
+  const totalLectures = await Lecture.countDocuments({ course: enrollment.course, isDeleted: false })
   const completedCount = enrollment.completedLectures.filter((l) => l.completed).length
-  enrollment.progress = totalLectures > 0 ? Math.round((completedCount / totalLectures) * 100) : 0
+  enrollment.progress = totalLectures > 0 ? Math.min(100, Math.round((completedCount / totalLectures) * 100)) : 0
 
-  if (enrollment.progress === 100 && !enrollment.isCompleted) {
+  if (enrollment.progress >= 100 && !enrollment.isCompleted) {
     enrollment.isCompleted = true
     enrollment.completedAt = new Date()
   }
