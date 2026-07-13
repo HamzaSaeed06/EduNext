@@ -80,6 +80,10 @@ if (process.env.NODE_ENV !== 'test') {
   )
 }
 
+// Serves locally-cached generated assets (e.g. certificate PDFs) when
+// Cloudinary isn't configured — see services/uploadService.js uploadBuffer().
+app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')))
+
 app.use('/api/v1', generalLimiter)
 
 app.use('/api/v1', indexRouter)
@@ -101,7 +105,25 @@ app.use(errorHandler)
 
 const PORT = parseInt(process.env.PORT || '3000', 10)
 
+// Fail loudly in production if file-storage credentials are missing, instead
+// of silently saving a fake `placeholder.edunext.dev` URL as if it were a
+// real upload — see services/uploadService.js.
+const checkProductionUploadConfig = () => {
+  if (process.env.NODE_ENV !== 'production') return
+  const missing = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].filter(
+    (key) => !process.env[key],
+  )
+  if (missing.length) {
+    logger.error(
+      `[STARTUP] Refusing to start in production without file-storage credentials. Missing: ${missing.join(', ')}. ` +
+        'Video/image/PDF uploads would otherwise silently save fake placeholder URLs. Set these in your environment (see .env.example) and restart.',
+    )
+    process.exit(1)
+  }
+}
+
 const startServer = () => {
+  checkProductionUploadConfig()
   if (process.env.NODE_ENV !== 'test') {
     initSocket(httpServer)
   }

@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card'
 import Input from '../../components/ui/Input'
 import courseService, { type Course, type Section } from '../../services/courseService'
 import api from '../../services/api'
+import { validateVideoFile } from '../../utils/videoUpload'
 
 export default function CourseEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -125,15 +126,9 @@ export default function CourseEditorPage() {
   }
 
   const handleVideoUpload = async (lectureId: string, file: File) => {
-    const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
-    const MAX_VIDEO_BYTES = 500 * 1024 * 1024  // 500 MB
-
-    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-      setError('Invalid file type. Only MP4, WebM, and QuickTime videos are allowed.')
-      return
-    }
-    if (file.size > MAX_VIDEO_BYTES) {
-      setError('File size exceeds the 500MB limit.')
+    const validation = validateVideoFile(file)
+    if (!validation.valid) {
+      setError(validation.error!)
       return
     }
 

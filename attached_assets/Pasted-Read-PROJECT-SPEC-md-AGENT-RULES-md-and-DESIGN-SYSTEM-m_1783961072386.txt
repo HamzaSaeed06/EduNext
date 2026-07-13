@@ -1,0 +1,102 @@
+Read PROJECT_SPEC.md, AGENT_RULES.md, and DESIGN_SYSTEM.md fully for
+context. Then fix the following confirmed, verified issues in this
+repo, in order. After each fix, re-run the relevant build/test command
+to prove it's actually fixed before moving to the next one — don't
+mark anything done on assumption.
+
+## 1. CRITICAL: Client production build is currently broken
+Run `cd client && npm run build`. It fails with:
+  src/pages/courses/CoursePlayerPage.tsx(273,23): error TS2322:
+  Type '() => void | null' is not assignable to type
+  '(e: any) => void | Promise<void>'.
+Fix the onClick handler around line 273 (the "Previous" lecture
+button) so it returns void instead of `null` — e.g. change
+`onClick={() => prevLecture && setActiveLecture(prevLecture)}` to a
+block body: `onClick={() => { if (prevLecture) setActiveLecture(prevLecture) }}`.
+Search the rest of the codebase for the same pattern
+(`condition && someFunction(...)` used directly as an onClick/onChange
+handler) and fix every occurrence the same way — this is a class of
+bug, not a one-off. Confirm `npm run build` completes with zero errors
+afterward.
+
+## 2. AI features are always stubbed, even with an API key configured
+`server/src/services/aiService.js` does `require('openai')`, but the
+`openai` package is NOT in `server/package.json` dependencies. Install
+it properly (`npm install openai` in `server/`), verify the AI
+recommendation, quiz-generation, course-summary, and AI Tutor chatbot
+features actually call the real API when `OPENAI_API_KEY` is set, and
+confirm the existing graceful-stub fallback still works cleanly when
+no key is set (don't break the no-key dev experience). Re-run
+`npm test` in server/ afterward to confirm nothing broke.
+
+## 3. Certificates are JSON-only — no real downloadable PDF
+There is currently no PDF generation and no "Download" button anywhere
+(only a verify-link and copy-link on the Certificates page). Implement:
+- Server: generate an actual PDF (use `pdfkit`, add it as a real
+  dependency) containing student name, course title, instructor name,
+  completion date, and certificate ID, styled per DESIGN_SYSTEM.md
+  (trail/flag icon, brand colors). Store the PDF (Cloudinary/S3 or
+  serve on demand) and add a `GET /api/v1/certificates/:certificateId/download`
+  route that returns the actual PDF file.
+- Frontend: add a real "Download Certificate" button on
+  `CertificatesPage.tsx` that hits this endpoint and downloads the PDF.
+Write a test confirming the download endpoint returns a valid
+PDF (correct content-type, non-empty body).
+
+## 4. Video upload silently falls back to a placeholder unless real
+   Cloudinary credentials are configured
+This isn't necessarily wrong for local dev, but it must fail loudly
+and clearly in production if credentials are missing, instead of
+silently saving a fake `placeholder.edunext.dev` URL as if it were a
+real video. Add a startup check: if `NODE_ENV=production` and
+Cloudinary env vars are missing, log a clear warning (or refuse to
+start, your judgment) rather than silently mock-uploading in prod.
+Document the required env vars clearly in `.env.example`.
+
+## 5. Missing dependencies that will crash the app in production
+The following packages are `require()`'d in code but are NOT declared
+in `server/package.json`, meaning the app will crash with "Cannot find
+module" the moment someone configures the corresponding real env vars
+in production:
+  - `cloudinary` (used in courseController.js when CLOUDINARY_API_SECRET is set)
+  - `nodemailer` (used in emailService.js when EMAIL_HOST is set in production)
+  - `openai` (see #2)
+  - a PDF library (see #3)
+Add all of these as real dependencies in `server/package.json` and
+run `npm install` to lock them in `package-lock.json`. Run
+`npm audit` afterward and fix any high/critical vulnerabilities that
+come in with them.
+
+## 6. Committed debug/log clutter files
+These files are tracked in git and contain leaked local Windows file
+paths — remove them from the repo and gitignore them:
+  - client/build_output.txt
+  - client/tsc_errors.txt
+  - server/test_output.txt
+  - server/test_output_cmd.txt
+Add `*.txt` log/output patterns (or the specific filenames) to
+`.gitignore` so they don't get re-committed, and add a note in
+AGENT_RULES.md not to commit local run-output files.
+
+## 7. No frontend test suite exists
+Backend has 83 passing Jest tests; frontend (`client/`) has zero.
+Set up Vitest + React Testing Library per AGENT_RULES.md Section 5,
+and write baseline tests for: the video upload validation logic, the
+certificate download button, the review submission form, and the
+Google login button rendering correctly. This doesn't need to be
+exhaustive — establish the pattern and cover the areas touched by
+fixes #1-4 above.
+
+## 8. Final verification pass
+After all fixes above:
+- `cd server && npm test && npm audit` — must show all tests passing
+  and no high/critical vulnerabilities
+- `cd client && npm run build` — must complete with zero TypeScript
+  errors
+- `cd client && npm test` — new frontend tests must pass
+- Report a clear pass/fail summary for each of the 8 items above.
+
+Do not silently skip or water down any item. If something turns out
+to be more involved than expected (e.g. a payment/paid PDF library
+needs a license decision), stop and tell me instead of quietly doing a
+partial fix.

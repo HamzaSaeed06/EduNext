@@ -204,3 +204,112 @@ describe('Certificate — Issuance', () => {
     expect(res.body.error.code).toBe('NOT_COMPLETE')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────
+describe('Certificate — Download', () => {
+  it('200: returns the actual PDF bytes with correct content-type (first-generation path)', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUser('student')))
+    Certificate.findOne.mockResolvedValue({
+      certificateId: 'cert-uuid-123',
+      student: 'student_001',
+      studentName: 'Alice',
+      courseTitle: 'Test Course',
+      instructorName: 'Bob',
+      issuedAt: new Date(),
+      pdfUrl: null,
+      save: jest.fn().mockResolvedValue(true),
+    })
+
+    const res = await request(app)
+      .get('/api/v1/certificates/cert-uuid-123/download')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+      .buffer()
+      .parse((response, callback) => {
+        const chunks = []
+        response.on('data', (chunk) => chunks.push(chunk))
+        response.on('end', () => callback(null, Buffer.concat(chunks)))
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('application/pdf')
+    expect(res.body.length).toBeGreaterThan(0)
+    expect(res.body.subarray(0, 4).toString()).toBe('%PDF')
+  })
+
+  it('200: serves the cached PDF bytes back on repeat downloads without regenerating', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUser('student')))
+    Certificate.findOne.mockResolvedValue({
+      certificateId: 'cert-uuid-123',
+      student: 'student_001',
+      studentName: 'Alice',
+      courseTitle: 'Test Course',
+      instructorName: 'Bob',
+      issuedAt: new Date(),
+      pdfUrl: '/uploads/certificates/cert-uuid-123.pdf',
+      save: jest.fn().mockResolvedValue(true),
+    })
+
+    const res = await request(app)
+      .get('/api/v1/certificates/cert-uuid-123/download')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+      .buffer()
+      .parse((response, callback) => {
+        const chunks = []
+        response.on('data', (chunk) => chunks.push(chunk))
+        response.on('end', () => callback(null, Buffer.concat(chunks)))
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('application/pdf')
+    expect(res.body.subarray(0, 4).toString()).toBe('%PDF')
+  })
+
+  it('403: a student cannot download another student\'s certificate', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUser('student')))
+    Certificate.findOne.mockResolvedValue({
+      certificateId: 'cert-uuid-123',
+      student: 'someone_else_002',
+      studentName: 'Alice',
+      courseTitle: 'Test Course',
+      instructorName: 'Bob',
+      issuedAt: new Date(),
+      pdfUrl: null,
+      save: jest.fn().mockResolvedValue(true),
+    })
+
+    const res = await request(app)
+      .get('/api/v1/certificates/cert-uuid-123/download')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+
+    expect(res.status).toBe(403)
+  })
+
+  it('404: unknown certificate ID cannot be downloaded', async () => {
+    User.findById.mockReturnValue(simpleChain(mockUser('student')))
+    Certificate.findOne.mockResolvedValue(null)
+
+    const res = await request(app)
+      .get('/api/v1/certificates/does-not-exist/download')
+      .set('Authorization', `Bearer ${makeToken('student')}`)
+
+    expect(res.status).toBe(404)
+  })
+
+  it('401: unauthenticated cannot download a certificate', async () => {
+    const res = await request(app).get('/api/v1/certificates/cert-uuid-123/download')
+    expect(res.status).toBe(401)
+  })
+
+  it('generates an actual, non-empty PDF file (valid %PDF header)', async () => {
+    const { generateCertificatePdf } = require('../src/services/pdfService')
+    const buffer = await generateCertificatePdf({
+      studentName: 'Alice',
+      courseTitle: 'Test Course',
+      instructorName: 'Bob',
+      issuedAt: new Date(),
+      certificateId: 'cert-uuid-123',
+    })
+    expect(buffer.length).toBeGreaterThan(0)
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF')
+  })
+})

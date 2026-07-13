@@ -18,6 +18,7 @@ interface Certificate {
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [loading, setLoading] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   useEffect(() => {
     api.get('/student/certificates')
@@ -25,6 +26,25 @@ export default function CertificatesPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  const handleDownload = async (cert: Certificate) => {
+    setDownloadingId(cert.certificateId)
+    try {
+      const res = await api.get(`/certificates/${cert.certificateId}/download`, { responseType: 'blob' })
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `EduNext-Certificate-${cert.certificateId.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(blobUrl)
+    } catch {
+      // no-op — the button itself surfaces no error state beyond stopping the spinner
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   return (
     <AppShell>
@@ -80,6 +100,13 @@ export default function CertificatesPage() {
                           navigator.clipboard.writeText(`${window.location.origin}/certificates/verify/${cert.certificateId}`)
                         }}>
                           Copy link
+                        </Button>
+                        <Button
+                          size="sm"
+                          isLoading={downloadingId === cert.certificateId}
+                          onClick={() => handleDownload(cert)}
+                        >
+                          Download certificate
                         </Button>
                       </div>
                     </div>

@@ -270,7 +270,7 @@ export default function CoursePlayerPage() {
                       variant="ghost"
                       size="sm"
                       disabled={!prevLecture}
-                      onClick={() => prevLecture && setActiveLecture(prevLecture)}
+                      onClick={() => { if (prevLecture) setActiveLecture(prevLecture) }}
                     >
                       ← Previous
                     </Button>

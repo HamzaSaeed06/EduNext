@@ -10,3 +10,12 @@ server/.env
 coverage/
 client/coverage/
 server/coverage/
+server/uploads/
+
+# Local run-output/log files (e.g. redirected build/test output) — never
+# commit these, see AGENT_RULES.md Section 2.
+build_output.txt
+tsc_errors.txt
+test_output.txt
+test_output_cmd.txt
+*.log.txt

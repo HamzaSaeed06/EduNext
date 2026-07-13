@@ -20,6 +20,7 @@
 - One logical change per commit. Don't bundle unrelated features.
 - Never commit `.env`, `node_modules`, build artifacts, or credentials.
 - Branch naming: `feature/<name>`, `fix/<name>`, `chore/<name>`
+- Never commit local run-output files (e.g. redirected `npm run build`/`npm test` output like `build_output.txt`, `tsc_errors.txt`, `test_output.txt`). They leak local machine paths and add no value in version control — pipe command output to your terminal/agent transcript instead, or to a gitignored scratch file.
 
 ---
 

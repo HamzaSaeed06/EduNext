@@ -41,6 +41,34 @@
 
 ---
 
+## 2026-07-13 — PDF certificate storage: Cloudinary in production, local disk cache in dev
+
+**Decision:** `services/pdfService.js` generates the certificate PDF with `pdfkit`. `services/uploadService.js` gained `uploadBuffer()`: when Cloudinary credentials are set it uploads the buffer as a `raw` resource and returns the secure URL; otherwise it writes the PDF to `server/uploads/certificates/` (gitignored) and serves it via a new `/uploads` static route. Either way the URL is cached once on `Certificate.pdfUrl` — the PDF is never regenerated on subsequent downloads.
+**Reason:** Matches the existing `uploadService.uploadFile` pattern (real Cloudinary in prod, local/stubbed behavior in dev) instead of introducing a second storage convention. Avoids requiring Cloudinary credentials just to exercise certificate downloads in local dev/tests.
+
+---
+
+## 2026-07-13 — Production startup check for file-storage credentials
+
+**Decision:** `app.js` now calls `checkProductionUploadConfig()` before `initSocket`/`listen`. If `NODE_ENV=production` and any of `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` are missing, it logs an explicit error and `process.exit(1)` instead of starting.
+**Reason:** Previously the app would silently save `https://placeholder.edunext.dev/...` URLs as if they were real uploaded videos/PDFs when Cloudinary wasn't configured — safe for dev, dangerous and silent in production. Refusing to start is preferable to serving broken video/certificate links to real users.
+
+---
+
+## 2026-07-13 — AI, email, and PDF packages added as real dependencies
+
+**Decision:** Added `openai`, `cloudinary`, `nodemailer`, `pdfkit` to `server/package.json` (previously `require()`'d conditionally but not declared — the app would crash with "Cannot find module" the moment the corresponding env vars were set in production). Ran `npm audit` after adding — 0 vulnerabilities.
+**Reason:** AGENT_RULES.md Section 6 requires every new package to be checked; these four were latent crash risks documented in the review checklist.
+
+---
+
+## 2026-07-13 — Frontend test suite established (Vitest + React Testing Library)
+
+**Decision:** Added `vitest`, `@vitest/ui`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` as devDependencies, with `client/vitest.config.ts` + `src/setupTests.ts`, and `npm test` → `vitest run`. Wrote baseline tests for video upload validation (`utils/videoUpload.test.ts`, plus extracted the validation logic itself into `utils/videoUpload.ts` so it's unit-testable outside the drag-and-drop component), the certificate download button, the review submission form, and the Google login button.
+**Reason:** AGENT_RULES.md Section 5 — no feature is "done" without tests; the client previously had zero. `npm audit` on the client reports 1 moderate/1 high issue in `esbuild`/`vite` (dev-server-only request forgery risk, not a production risk) that would require a breaking major-version `vite` upgrade to clear — flagged here rather than silently fixed or silently ignored; left as a follow-up decision for the user.
+
+---
+
 ## 2026-07-13 — server/.env committed for development
 
 **Decision:** `server/.env` with development-only dummy secrets is committed for initial Replit setup.

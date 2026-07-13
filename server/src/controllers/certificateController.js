@@ -3,6 +3,8 @@ const Enrollment = require('../models/Enrollment')
 const Course = require('../models/Course')
 const User = require('../models/User')
 const { AppError, asyncHandler } = require('../middlewares/errorHandler')
+const { generateCertificatePdf } = require('../services/pdfService')
+const { uploadBuffer, readStoredBuffer } = require('../services/uploadService')
 
 // POST /api/v1/courses/:slug/certificate  — issue after 100% completion
 const issueCertificate = asyncHandler(async (req, res) => {
@@ -61,4 +63,48 @@ const getMyCertificates = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { certificates }, message: '' })
 })
 
-module.exports = { issueCertificate, verifyCertificate, getMyCertificates }
+// GET /api/v1/certificates/:certId/download — serves the actual PDF file
+// bytes directly (Content-Type: application/pdf), not a redirect. Generated
+// once and cached (Certificate.pdfUrl + local/Cloudinary storage via
+// uploadBuffer); subsequent downloads read the cached bytes back instead of
+// regenerating the PDF.
+const downloadCertificate = asyncHandler(async (req, res) => {
+  const certificate = await Certificate.findOne({ certificateId: req.params.certId })
+  if (!certificate) throw new AppError('Certificate not found or invalid', 404, 'NOT_FOUND')
+
+  // Only the certificate's owner or an admin may download it — certificate
+  // IDs are unguessable (UUID) but shouldn't be treated as a public bearer
+  // token for someone else's private record.
+  if (req.user.role !== 'admin' && String(certificate.student) !== String(req.user._id)) {
+    throw new AppError('You do not have access to this certificate', 403, 'FORBIDDEN')
+  }
+
+  let pdfBuffer
+
+  if (!certificate.pdfUrl) {
+    pdfBuffer = await generateCertificatePdf({
+      studentName: certificate.studentName,
+      courseTitle: certificate.courseTitle,
+      instructorName: certificate.instructorName,
+      issuedAt: certificate.issuedAt,
+      certificateId: certificate.certificateId,
+    })
+
+    const { url } = await uploadBuffer(pdfBuffer, 'certificates', `${certificate.certificateId}.pdf`, {
+      resourceType: 'raw',
+    })
+    certificate.pdfUrl = url
+    await certificate.save()
+  } else {
+    pdfBuffer = await readStoredBuffer(certificate.pdfUrl)
+  }
+
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="EduNext-Certificate-${certificate.certificateId}.pdf"`,
+    'Content-Length': pdfBuffer.length,
+  })
+  return res.send(pdfBuffer)
+})
+
+module.exports = { issueCertificate, verifyCertificate, getMyCertificates, downloadCertificate }
