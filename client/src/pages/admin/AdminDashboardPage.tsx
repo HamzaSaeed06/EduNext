@@ -1,6 +1,7 @@
 import { useState, useEffect, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -24,6 +25,18 @@ export default function AdminDashboardPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Mock platform growth data
+  const platformGrowthData = [
+    { date: 'Week 1', users: 120, courses: 8, enrollments: 45 },
+    { date: 'Week 2', users: 185, courses: 12, enrollments: 78 },
+    { date: 'Week 3', users: 245, courses: 18, enrollments: 142 },
+    { date: 'Week 4', users: 312, courses: 24, enrollments: 198 },
+    { date: 'Week 5', users: 385, courses: 28, enrollments: 256 },
+    { date: 'Week 6', users: 421, courses: 35, enrollments: 315 },
+    { date: 'Week 7', users: 488, courses: 41, enrollments: 387 },
+    { date: 'Week 8', users: 512, courses: 48, enrollments: 445 },
+  ]
 
   type StatIcon = ComponentType<SVGProps<SVGSVGElement>>
   const STAT_CARDS: { label: string; value: number | undefined; Icon: StatIcon; href: string; highlight?: boolean }[] = [
@@ -59,6 +72,42 @@ export default function AdminDashboardPage() {
             </Link>
           ))}
         </div>
+
+        {/* Platform growth chart */}
+        <Card className="p-6">
+          <h3 className="font-display text-heading text-ink-primary mb-4">Platform growth</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={platformGrowthData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <YAxis stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                }}
+                labelStyle={{ color: 'var(--ink-primary)' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="users"
+                stroke="#2F6F4E"
+                strokeWidth={2}
+                dot={false}
+                name="Users"
+              />
+              <Line
+                type="monotone"
+                dataKey="enrollments"
+                stroke="#3556D9"
+                strokeWidth={2}
+                dot={false}
+                name="Enrollments"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="p-6">

@@ -1,7 +1,7 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
   size?: 'sm' | 'md' | 'lg'
   children: ReactNode
   isLoading?: boolean
@@ -13,13 +13,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary:
-    'bg-trail-amber text-white hover:bg-opacity-90 focus-visible:ring-trail-amber',
+    'bg-trail-amber text-white hover:bg-opacity-90 active:scale-95 focus-visible:ring-trail-amber transition-transform',
   secondary:
-    'bg-bg-surface-alt text-ink-primary border border-border-color hover:bg-border-color focus-visible:ring-trail-amber',
+    'bg-bg-surface-alt text-ink-primary border border-border-color hover:bg-border-color active:scale-95 focus-visible:ring-trail-amber transition-transform',
   ghost:
-    'bg-transparent text-ink-primary hover:bg-bg-surface-alt focus-visible:ring-trail-amber',
+    'bg-transparent text-ink-primary hover:bg-bg-surface-alt active:scale-95 focus-visible:ring-trail-amber transition-transform',
   danger:
-    'bg-error-clay text-white hover:bg-opacity-90 focus-visible:ring-error-clay',
+    'bg-error-clay text-white hover:bg-opacity-90 active:scale-95 focus-visible:ring-error-clay transition-transform',
+  success:
+    'bg-trail-green text-white hover:bg-opacity-90 active:scale-95 focus-visible:ring-trail-green transition-transform',
 }
 
 const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {

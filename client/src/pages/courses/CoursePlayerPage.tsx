@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card'
 import TrailProgress from '../../components/ui/TrailProgress'
 import DiscussionPanel from '../../components/ui/DiscussionPanel'
 import AIChatWidget from '../../components/ui/AIChatWidget'
+import CompletionCelebration from '../../components/ui/CompletionCelebration'
 import { NoteIcon, PartyIcon, SadFaceIcon, CheckIcon, XIcon, LightbulbIcon, DocumentIcon, ArrowRightIcon } from '../../components/ui/Icons'
 import type { RootState } from '../../features/store'
 import courseService, {
@@ -228,8 +229,10 @@ export default function CoursePlayerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('content')
   const [markingComplete, setMarkingComplete] = useState(false)
+  const [showCompletionCelebration, setShowCompletionCelebration] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const savePositionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevProgressRef = useRef(progress)
 
   useEffect(() => {
     if (!slug || !token) { navigate('/login'); return }
@@ -262,6 +265,14 @@ export default function CoursePlayerPage() {
     }).catch(() => navigate(`/courses/${slug}`))
       .finally(() => setLoading(false))
   }, [slug, token, navigate])
+
+  // Detect 100% completion and show celebration
+  useEffect(() => {
+    if (progress === 100 && prevProgressRef.current < 100) {
+      setShowCompletionCelebration(true)
+    }
+    prevProgressRef.current = progress
+  }, [progress])
 
   // Resume video position when switching lectures
   useEffect(() => {
@@ -598,6 +609,22 @@ export default function CoursePlayerPage() {
           lectureId={activeLecture?._id}
         />
       )}
+
+      {/* Completion celebration modal */}
+      <CompletionCelebration
+        isOpen={showCompletionCelebration}
+        title="Course Complete!"
+        message="Congratulations on finishing this trail. You have earned your certificate!"
+        courseTitle={course?.title}
+        onClose={() => {
+          setShowCompletionCelebration(false)
+          navigate(`/courses/${slug}`)
+        }}
+        onDownloadCertificate={() => {
+          setShowCompletionCelebration(false)
+          navigate(`/courses/${slug}`)
+        }}
+      />
     </div>
   )
 }

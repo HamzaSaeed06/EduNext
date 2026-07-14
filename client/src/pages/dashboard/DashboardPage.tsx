@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import type { RootState } from '../../features/store'
 import AppShell from '../../components/layout/AppShell'
 import TrailProgress from '../../components/ui/TrailProgress'
@@ -60,6 +61,17 @@ export default function DashboardPage() {
   const inProgress = enrollments.filter((e) => !e.isCompleted)
   const completed = enrollments.filter((e) => e.isCompleted)
 
+  // Mock progress chart data
+  const progressTrendData = [
+    { name: 'Mon', hours: 2, courses: 1 },
+    { name: 'Tue', hours: 3, courses: 1 },
+    { name: 'Wed', hours: 2, courses: 2 },
+    { name: 'Thu', hours: 4, courses: 2 },
+    { name: 'Fri', hours: 3, courses: 1 },
+    { name: 'Sat', hours: 5, courses: 3 },
+    { name: 'Sun', hours: 2, courses: 1 },
+  ]
+
   return (
     <AppShell>
       <motion.div
@@ -81,23 +93,56 @@ export default function DashboardPage() {
             label="Enrolled courses"
             value={stats?.enrolledCourses ?? enrollments.length}
             color="green"
+            trend={5}
+            trendLabel="vs last month"
+            loading={loading}
           />
           <StatCard
             label="In progress"
             value={stats?.inProgressCourses ?? inProgress.length}
             color="blue"
+            trend={2}
+            trendLabel="active trails"
+            loading={loading}
           />
           <StatCard
             label="Completed"
             value={stats?.completedCourses ?? completed.length}
             color="amber"
+            trend={1}
+            trendLabel="this month"
+            loading={loading}
           />
           <StatCard
             label="Hours learned"
             value={`${stats?.totalHoursLearned ?? 0}h`}
             color="purple"
+            trend={21}
+            trendLabel="this week"
+            loading={loading}
           />
         </div>
+
+        {/* Learning activity chart */}
+        <Card className="p-6">
+          <h3 className="font-display text-heading text-ink-primary mb-4">Learning activity this week</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={progressTrendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="name" stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <YAxis stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                }}
+                labelStyle={{ color: 'var(--ink-primary)' }}
+              />
+              <Bar dataKey="hours" fill="#2F6F4E" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
 
         {/* Your Trails */}
         <section>
