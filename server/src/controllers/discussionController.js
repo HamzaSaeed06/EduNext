@@ -54,8 +54,9 @@ const createPost = asyncHandler(async (req, res) => {
     if (!enrollment) throw new AppError('You must be enrolled to post in discussions', 403, 'FORBIDDEN')
   }
 
+  let parent = null
   if (parentPostId) {
-    const parent = await DiscussionPost.findOne({ _id: parentPostId, isDeleted: false })
+    parent = await DiscussionPost.findOne({ _id: parentPostId, isDeleted: false })
     if (!parent || String(parent.course) !== String(course._id)) {
       throw new AppError('Parent post not found', 404, 'NOT_FOUND')
     }
@@ -72,6 +73,16 @@ const createPost = asyncHandler(async (req, res) => {
   })
 
   await post.populate('author', 'name avatar role')
+
+  // Notify the parent comment's author that someone replied — but not when
+  // replying to your own comment.
+  if (parent && String(parent.author) !== String(req.user._id)) {
+    const { notifyUser } = require('../config/socket')
+    notifyUser(parent.author, 'discussion_reply', `${req.user.name} replied to your comment`, {
+      courseId: course._id,
+      postId: post._id,
+    })
+  }
 
   res.status(201).json({ success: true, data: { post }, message: 'Posted successfully' })
 })

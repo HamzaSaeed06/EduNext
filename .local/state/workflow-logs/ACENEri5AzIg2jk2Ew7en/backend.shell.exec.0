@@ -1,0 +1,19 @@
+[1G[0K⠙[1G[0K
+> edunext-server@0.1.0 dev
+> NODE_ENV=development nodemon src/app.js
+
+[1G[0K⠙[1G[0K[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/app.js`[39m
+2026-07-13 19:27:26 [[32minfo[39m]: [Socket.io] Initialized
+2026-07-13 19:27:26 [[32minfo[39m]: EduNext server running on port 3000 [development]
+2026-07-13 19:27:27 [[32minfo[39m]: MongoDB connected: ac-6caysff-shard-00-00.0sjxhgb.mongodb.net
+2026-07-13 19:27:28 [[32minfo[39m]: 10.62.3.150 - - [13/Jul/2026:19:27:28 +0000] "POST /api/v1/auth/refresh-token HTTP/1.1" 401 81 "https://1f405ced-56db-4030-b404-b71a57cc38e5-00-f8p3lx6kqn0x.sisko.replit.dev:5000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+2026-07-13 19:27:28 [[32minfo[39m]: 10.62.8.83 - - [13/Jul/2026:19:27:28 +0000] "POST /api/v1/auth/refresh-token HTTP/1.1" 401 81 "https://1f405ced-56db-4030-b404-b71a57cc38e5-00-f8p3lx6kqn0x.sisko.replit.dev:5000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+[32m[nodemon] restarting child process[39m
+[32m[nodemon] starting `node src/app.js`[39m
+2026-07-13 19:31:27 [[32minfo[39m]: [Socket.io] Initialized
+2026-07-13 19:31:27 [[32minfo[39m]: EduNext server running on port 3000 [development]
+2026-07-13 19:31:27 [[32minfo[39m]: MongoDB connected: ac-6caysff-shard-00-01.0sjxhgb.mongodb.net
