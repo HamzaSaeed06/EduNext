@@ -7,6 +7,7 @@ import AppShell from '../../components/layout/AppShell'
 import TrailProgress from '../../components/ui/TrailProgress'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import StatCard from '../../components/analytics/StatCard'
 import courseService from '../../services/courseService'
 import api from '../../services/api'
 import { MedalIcon } from '../../components/ui/Icons'
@@ -30,17 +31,28 @@ interface Recommendation {
   reason: string
 }
 
+interface StudentStats {
+  enrolledCourses: number
+  completedCourses: number
+  inProgressCourses: number
+  totalHoursLearned: number
+}
+
 export default function DashboardPage() {
   const { user } = useSelector((s: RootState) => s.auth)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [recommendations, setRecommendations] = useState<Recommendation | null>(null)
+  const [stats, setStats] = useState<StudentStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       courseService.getMyEnrollments().then((d) => setEnrollments(d.enrollments as unknown as Enrollment[])).catch(() => {}),
       user?.role === 'student'
-        ? api.get('/ai/recommendations').then((r) => setRecommendations(r.data.data.recommendations)).catch(() => {})
+        ? Promise.all([
+            api.get('/ai/recommendations').then((r) => setRecommendations(r.data.data.recommendations)).catch(() => {}),
+            api.get('/student/stats').then((r) => setStats(r.data.data)).catch(() => {}),
+          ])
         : Promise.resolve(),
     ]).finally(() => setLoading(false))
   }, [user])
@@ -64,17 +76,27 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'Enrolled', value: enrollments.length },
-            { label: 'In progress', value: inProgress.length },
-            { label: 'Completed', value: completed.length },
-          ].map((s) => (
-            <Card key={s.label} className="p-4 text-center">
-              <p className="font-display text-display-s text-trail-green">{s.value}</p>
-              <p className="text-small text-ink-muted">{s.label}</p>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Enrolled courses"
+            value={stats?.enrolledCourses ?? enrollments.length}
+            color="green"
+          />
+          <StatCard
+            label="In progress"
+            value={stats?.inProgressCourses ?? inProgress.length}
+            color="blue"
+          />
+          <StatCard
+            label="Completed"
+            value={stats?.completedCourses ?? completed.length}
+            color="amber"
+          />
+          <StatCard
+            label="Hours learned"
+            value={`${stats?.totalHoursLearned ?? 0}h`}
+            color="purple"
+          />
         </div>
 
         {/* Your Trails */}

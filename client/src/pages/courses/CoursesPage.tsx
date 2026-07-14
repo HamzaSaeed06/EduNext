@@ -44,7 +44,22 @@ export default function CoursesPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    fetchCourses()
+    // Force refetch by calling fetchCourses
+    setLoading(true)
+    setError('')
+    courseService.getCourses({ page: 1, level: level || undefined, sort, search: search || undefined })
+      .then((data) => {
+        setCourses(data.courses)
+        setTotal(data.pagination.total)
+      })
+      .catch(() => setError('Failed to load courses. Please try again.'))
+      .finally(() => setLoading(false))
+  }
+
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      e.currentTarget.form?.dispatchEvent(new Event('submit', { bubbles: true }))
+    }
   }
 
   return (
@@ -71,6 +86,7 @@ export default function CoursesPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyPress={handleInputKeyPress}
                 placeholder="Search courses…"
                 className="flex-1 px-3 py-2 rounded-btn border border-border-color bg-bg-surface text-body text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-trail-green focus:ring-1 focus:ring-trail-green text-small"
               />
@@ -166,7 +182,7 @@ export default function CoursesPage() {
             <div className="flex justify-center gap-2 pt-4">
               <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
               <span className="text-small text-ink-muted py-2">Page {page}</span>
-              <Button variant="ghost" size="sm" disabled={courses.length < 12} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              <Button variant="ghost" size="sm" disabled={page * 12 >= total} onClick={() => setPage((p) => p + 1)}>Next</Button>
             </div>
           )}
         </motion.div>

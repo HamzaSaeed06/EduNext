@@ -2,17 +2,31 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
+import StatCard from '../../components/analytics/StatCard'
 import courseService, { type Course } from '../../services/courseService'
+import api from '../../services/api'
+
+interface InstructorStats {
+  myCourses: number
+  totalStudents: number
+  totalEnrollments: number
+  pendingReviews: number
+}
 
 export default function InstructorAnalyticsPage() {
   const [courses, setCourses] = useState<Course[]>([])
+  const [stats, setStats] = useState<InstructorStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    courseService.getInstructorCourses()
-      .then((d) => setCourses(d.courses))
-      .catch(() => { })
-      .finally(() => setLoading(false))
+    Promise.all([
+      courseService.getInstructorCourses()
+        .then((d) => setCourses(d.courses))
+        .catch(() => { }),
+      api.get('/instructor/stats')
+        .then((r) => setStats(r.data.data))
+        .catch(() => { }),
+    ]).finally(() => setLoading(false))
   }, [])
 
   const published = courses.filter((c) => c.status === 'published')
@@ -31,18 +45,27 @@ export default function InstructorAnalyticsPage() {
           <p className="text-body text-ink-muted">How your trails are performing</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Total courses', value: courses.length },
-            { label: 'Published', value: published.length },
-            { label: 'Total enrollments', value: totalEnrollments },
-            { label: 'Pending review', value: courses.filter((c) => c.status === 'pending_review').length },
-          ].map((stat) => (
-            <Card key={stat.label} className="p-5 text-center">
-              <p className="font-display text-display-s text-trail-green">{loading ? '—' : stat.value}</p>
-              <p className="text-small text-ink-muted">{stat.label}</p>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="My courses"
+            value={stats?.myCourses ?? courses.length}
+            color="green"
+          />
+          <StatCard
+            label="Total students"
+            value={stats?.totalStudents ?? 0}
+            color="blue"
+          />
+          <StatCard
+            label="Total enrollments"
+            value={stats?.totalEnrollments ?? totalEnrollments}
+            color="amber"
+          />
+          <StatCard
+            label="Pending review"
+            value={stats?.pendingReviews ?? courses.filter((c) => c.status === 'pending_review').length}
+            color="purple"
+          />
         </div>
 
         {loading ? (
