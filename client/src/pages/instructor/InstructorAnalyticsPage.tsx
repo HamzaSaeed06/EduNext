@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import AppShell from '../../components/layout/AppShell'
 import Card from '../../components/ui/Card'
 import StatCard from '../../components/analytics/StatCard'
@@ -32,6 +33,18 @@ export default function InstructorAnalyticsPage() {
   const published = courses.filter((c) => c.status === 'published')
   const totalEnrollments = published.reduce((sum, c) => sum + c.enrollmentCount, 0)
 
+  // Mock enrollment trends data
+  const enrollmentTrendsData = [
+    { week: 'Week 1', enrollments: 45, reviews: 3 },
+    { week: 'Week 2', enrollments: 78, reviews: 5 },
+    { week: 'Week 3', enrollments: 142, reviews: 8 },
+    { week: 'Week 4', enrollments: 198, reviews: 12 },
+    { week: 'Week 5', enrollments: 256, reviews: 15 },
+    { week: 'Week 6', enrollments: 315, reviews: 18 },
+    { week: 'Week 7', enrollments: 387, reviews: 22 },
+    { week: 'Week 8', enrollments: 445, reviews: 25 },
+  ]
+
   return (
     <AppShell>
       <motion.div
@@ -50,23 +63,54 @@ export default function InstructorAnalyticsPage() {
             label="My courses"
             value={stats?.myCourses ?? courses.length}
             color="green"
+            trend={stats?.myCourses ? 2 : 0}
+            trendLabel="published"
+            loading={loading}
           />
           <StatCard
             label="Total students"
             value={stats?.totalStudents ?? 0}
             color="blue"
+            trend={12}
+            trendLabel="this month"
+            loading={loading}
           />
           <StatCard
             label="Total enrollments"
             value={stats?.totalEnrollments ?? totalEnrollments}
             color="amber"
+            trend={34}
+            trendLabel="this month"
+            loading={loading}
           />
           <StatCard
             label="Pending review"
             value={stats?.pendingReviews ?? courses.filter((c) => c.status === 'pending_review').length}
             color="purple"
+            loading={loading}
           />
         </div>
+
+        {/* Enrollment trends chart */}
+        <Card className="p-6">
+          <h3 className="font-display text-heading text-ink-primary mb-4">Enrollment trends</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={enrollmentTrendsData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="week" stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <YAxis stroke="var(--ink-muted)" style={{ fontSize: '12px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                }}
+                labelStyle={{ color: 'var(--ink-primary)' }}
+              />
+              <Bar dataKey="enrollments" fill="#2F6F4E" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
 
         {loading ? (
           <div className="space-y-3">
