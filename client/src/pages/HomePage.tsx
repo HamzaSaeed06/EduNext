@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import PublicNavbar from '../components/layout/PublicNavbar'
@@ -20,9 +20,17 @@ import {
   StarIcon,
   CheckIcon,
 } from '../components/ui/Icons'
+import api from '../services/api'
 import type { SVGProps } from 'react'
 
 type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element
+
+interface PlatformStats {
+  activeUsers: number
+  coursesAvailable: number
+  totalEnrollments: number
+  averageRating: number
+}
 
 const sampleCourses = [
   { id: 1, title: 'Introduction to Machine Learning', instructor: 'Dr. Sarah Chen', level: 'Beginner', progress: 45, enrolled: 2340 },
@@ -84,6 +92,13 @@ const HOW_IT_WORKS: { step: string; title: string; desc: string; icon: IconCompo
 export default function HomePage() {
   const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [stats, setStats] = useState<PlatformStats | null>(null)
+
+  useEffect(() => {
+    api.get('/platform/stats')
+      .then((r) => setStats(r.data.data))
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="min-h-screen bg-bg-base font-body">
@@ -123,10 +138,10 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: '12,000+', label: 'Active learners' },
-              { value: '200+', label: 'Courses available' },
-              { value: '95%', label: 'Completion rate' },
-              { value: '4.8', label: 'Average rating' },
+              { value: stats?.activeUsers.toLocaleString() || '12,000+', label: 'Active learners' },
+              { value: stats?.coursesAvailable.toLocaleString() || '200+', label: 'Courses available' },
+              { value: stats?.totalEnrollments.toLocaleString() || '—', label: 'Total enrollments' },
+              { value: stats?.averageRating || '4.8', label: 'Average rating' },
             ].map(({ value, label }) => (
               <div key={label}>
                 <p className="font-display text-display-l text-trail-green font-bold flex items-center justify-center gap-1">

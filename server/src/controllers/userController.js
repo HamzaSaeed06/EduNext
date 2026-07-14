@@ -89,4 +89,96 @@ const getAdminStats = asyncHandler(async (req, res) => {
   })
 })
 
-module.exports = { getUsers, toggleBan, changeRole, getAdminStats }
+// GET /api/v1/student/stats — student dashboard analytics
+const getStudentStats = asyncHandler(async (req, res) => {
+  const userId = req.user._id
+
+  const [enrolledCourses, completedCourses, inProgressCourses, totalHoursLearned] = await Promise.all([
+    Enrollment.countDocuments({ student: userId }),
+    Enrollment.countDocuments({ student: userId, isCompleted: true }),
+    Enrollment.countDocuments({ student: userId, isCompleted: false, progress: { $gt: 0 } }),
+    Enrollment.aggregate([
+      { $match: { student: userId } },
+      { $group: { _id: null, totalHours: { $sum: '$watchedSeconds' } } },
+    ]),
+  ])
+
+  const hours = totalHoursLearned[0]?.totalHours ? Math.round(totalHoursLearned[0].totalHours / 3600) : 0
+
+  res.json({
+    success: true,
+    data: {
+      enrolledCourses,
+      completedCourses,
+      inProgressCourses,
+      totalHoursLearned: hours,
+    },
+    message: '',
+  })
+})
+
+// GET /api/v1/instructor/stats — instructor dashboard analytics
+const getInstructorStats = asyncHandler(async (req, res) => {
+  const instructorId = req.user._id
+
+  const [myCourses, totalStudents, totalEnrollments, totalReviews] = await Promise.all([
+    Course.countDocuments({ instructor: instructorId, isDeleted: false }),
+    User.aggregate([
+      { $match: { _id: instructorId, isDeleted: false } },
+      { $lookup: { from: 'enrollments', localField: 'courses', foreignField: 'course', as: 'allEnrollments' } },
+    ]),
+    Enrollment.aggregate([
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'course',
+          foreignField: '_id',
+          as: 'courseData',
+        },
+      },
+      { $match: { 'courseData.instructor': instructorId } },
+      { $count: 'total' },
+    ]),
+    Course.countDocuments({ instructor: instructorId, status: 'pending_review', isDeleted: false }),
+  ])
+
+  const students = totalStudents[0]?.allEnrollments?.length || 0
+  const enrollments = totalEnrollments[0]?.total || 0
+
+  res.json({
+    success: true,
+    data: {
+      myCourses,
+      totalStudents: students,
+      totalEnrollments: enrollments,
+      pendingReviews: totalReviews,
+    },
+    message: '',
+  })
+})
+
+// GET /api/v1/platform/stats — public platform stats for homepage
+const getPlatformStats = asyncHandler(async (req, res) => {
+  const [totalUsers, totalCourses, totalEnrollments, avgRating] = await Promise.all([
+    User.countDocuments({ isDeleted: false }),
+    Course.countDocuments({ isDeleted: false, status: 'published' }),
+    Enrollment.countDocuments(),
+    Course.aggregate([
+      { $match: { isDeleted: false, status: 'published', averageRating: { $gt: 0 } } },
+      { $group: { _id: null, avgRating: { $avg: '$averageRating' } } },
+    ]),
+  ])
+
+  res.json({
+    success: true,
+    data: {
+      activeUsers: totalUsers,
+      coursesAvailable: totalCourses,
+      totalEnrollments,
+      averageRating: avgRating[0]?.avgRating?.toFixed(1) || 4.8,
+    },
+    message: '',
+  })
+})
+
+module.exports = { getUsers, toggleBan, changeRole, getAdminStats, getStudentStats, getInstructorStats, getPlatformStats }

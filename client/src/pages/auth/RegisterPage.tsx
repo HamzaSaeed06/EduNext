@@ -12,7 +12,7 @@ export default function RegisterPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' as 'student' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' as 'student' | 'instructor' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -75,6 +75,33 @@ export default function RegisterPage() {
               autoComplete="email"
               required
             />
+            <div>
+              <label className="block text-small font-medium text-ink-primary mb-1.5">I am a</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 cursor-pointer flex-1 p-3 border border-border-color rounded-btn hover:border-trail-green transition-colors" style={{ borderColor: form.role === 'student' ? 'rgb(16, 185, 129)' : undefined }}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="student"
+                    checked={form.role === 'student'}
+                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'student' | 'instructor' }))}
+                    className="accent-trail-green"
+                  />
+                  <span className="text-small">Student</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer flex-1 p-3 border border-border-color rounded-btn hover:border-trail-green transition-colors" style={{ borderColor: form.role === 'instructor' ? 'rgb(16, 185, 129)' : undefined }}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="instructor"
+                    checked={form.role === 'instructor'}
+                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'student' | 'instructor' }))}
+                    className="accent-trail-green"
+                  />
+                  <span className="text-small">Instructor</span>
+                </label>
+              </div>
+            </div>
             <Input
               label="Password"
               type="password"

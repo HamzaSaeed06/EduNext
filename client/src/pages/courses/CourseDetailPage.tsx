@@ -128,9 +128,9 @@ export default function CourseDetailPage() {
           All courses
         </Link>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Left: info */}
-          <div className="md:col-span-2">
+          <div className="lg:col-span-2">
             <div className="flex flex-wrap gap-2 mb-4">
               <span className="text-micro font-mono text-ink-muted uppercase tracking-wide bg-bg-surface-alt px-2 py-0.5 rounded-pill">
                 {course.level}
@@ -218,7 +218,7 @@ export default function CourseDetailPage() {
 
           {/* Right: enroll card */}
           <div>
-            <Card className="p-6 sticky top-24">
+            <Card className="p-6 lg:sticky lg:top-24">
               {course.thumbnail && (
                 <img src={course.thumbnail} alt={course.title} className="w-full h-36 object-cover rounded-btn mb-4" />
               )}
